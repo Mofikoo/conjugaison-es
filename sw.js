@@ -1,5 +1,5 @@
 // Service Worker — cache offline
-const CACHE = 'conjugar-v1';
+const CACHE = 'conjugar-v2';
 const ASSETS = ['./', './index.html', './css/style.css', './js/data.js', './js/sm2.js', './js/ai.js', './js/app.js', './manifest.json'];
 
 self.addEventListener('install', e => {
