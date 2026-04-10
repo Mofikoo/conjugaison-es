@@ -452,20 +452,17 @@ const GUIDE_DATA = [
 function renderGuide() {
   const container = document.getElementById('guide-content');
   container.innerHTML = GUIDE_DATA.map((t, i) => `
-    <div class="guide-tense" id="guide-${i}">
-      <div class="guide-tense-header" onclick="toggleGuide(${i})">
-        <div>
-          <div class="guide-tense-name">${t.es}</div>
-          <div class="guide-tense-fr">${t.fr}</div>
-        </div>
-        <span class="guide-chevron">▼</span>
+    <div class="guide-item" id="guide-${i}">
+      <div class="guide-header" onclick="toggleGuide(${i})">
+        <span class="guide-tense-name">${t.es} <em>${t.fr}</em></span>
+        <span class="guide-chevron">▾</span>
       </div>
-      <div class="guide-tense-body">
-        <div class="guide-trigger">${t.triggers.join(' · ')}</div>
-        <div class="guide-usage">${t.usage}</div>
+      <div class="guide-body">
+        <div class="guide-use-row">${t.triggers.map(tag => `<span class="guide-tag">${tag}</span>`).join('')}</div>
+        <div style="font-size:0.88rem;color:var(--text2);line-height:1.65;margin-bottom:0.85rem">${t.usage}</div>
         <div class="guide-examples">
           ${t.examples.map(ex => `
-            <div class="guide-example">
+            <div class="guide-ex">
               <div class="guide-es">${ex.es}</div>
               <div class="guide-fr">${ex.fr}</div>
             </div>`).join('')}
