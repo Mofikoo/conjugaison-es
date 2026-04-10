@@ -292,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-study').addEventListener('click', startSession);
   document.getElementById('btn-settings').addEventListener('click', renderSettings);
   document.getElementById('btn-manage').addEventListener('click', renderManage);
-  document.getElementById('btn-guide').addEventListener('click', () => showScreen('guide'));
+  document.getElementById('btn-guide').addEventListener('click', renderGuide);
   document.getElementById('btn-done-home').addEventListener('click', () => renderHome());
 
   document.querySelectorAll('[data-back]').forEach(btn => {
