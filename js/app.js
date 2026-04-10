@@ -321,15 +321,160 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Guide accordion
-  document.querySelectorAll('.guide-header').forEach(h => {
-    h.addEventListener('click', () => {
-      const item = h.closest('.guide-item');
-      const isOpen = item.classList.contains('open');
-      document.querySelectorAll('.guide-item').forEach(i => i.classList.remove('open'));
-      if (!isOpen) item.classList.add('open');
-    });
-  });
-
   renderHome();
 });
+
+// ─── GUIDE ────────────────────────────────────────────────────────────────────
+const GUIDE_DATA = [
+  {
+    es: 'Presente',
+    fr: 'Présent de l\'indicatif',
+    triggers: ['ahora', 'siempre', 'todos los días', 'generalmente'],
+    usage: 'Actions habituelles, vérités générales, et ce qui se passe en ce moment. Aussi utilisé pour le futur proche et les récits au présent historique.',
+    examples: [
+      { es: 'Trabajo en Madrid.', fr: 'Je travaille à Madrid.' },
+      { es: 'El sol sale por el este.', fr: 'Le soleil se lève à l\'est.' },
+      { es: 'Mañana voy al médico.', fr: 'Demain je vais chez le médecin. (futur proche)' },
+    ],
+  },
+  {
+    es: 'Pretérito indefinido',
+    fr: 'Prétérit indéfini — passé simple',
+    triggers: ['ayer', 'el año pasado', 'en 2010', 'hace tres días'],
+    usage: 'Actions passées complètes et délimitées dans le temps. Rupture avec le présent. Idéal pour raconter une histoire ou une séquence d\'événements.',
+    examples: [
+      { es: 'Ayer comí paella.', fr: 'Hier j\'ai mangé de la paëlla.' },
+      { es: 'Vivió en París durante dos años.', fr: 'Il a vécu à Paris pendant deux ans.' },
+      { es: 'Llegué, vi, vencí.', fr: 'Je suis arrivé, j\'ai vu, j\'ai vaincu.' },
+    ],
+  },
+  {
+    es: 'Pretérito imperfecto',
+    fr: 'Imparfait de l\'indicatif',
+    triggers: ['antes', 'cuando era niño', 'siempre (passé)', 'de niño'],
+    usage: 'Actions habituelles dans le passé, descriptions, contexte narratif, et actions en cours interrompues. Contraste avec l\'indéfini pour les récits.',
+    examples: [
+      { es: 'Cuando era niño, jugaba al fútbol.', fr: 'Quand j\'étais enfant, je jouais au foot.' },
+      { es: 'El cielo estaba nublado.', fr: 'Le ciel était nuageux. (description)' },
+      { es: 'Dormía cuando sonó el teléfono.', fr: 'Je dormais quand le téléphone a sonné.' },
+    ],
+  },
+  {
+    es: 'Pretérito perfecto compuesto',
+    fr: 'Passé composé (avec haber)',
+    triggers: ['hoy', 'esta semana', 'alguna vez', 'ya', 'todavía no'],
+    usage: 'Actions passées liées au présent (aujourd\'hui, cette semaine) ou expériences de vie. Dominant en Espagne, moins utilisé en Amérique latine.',
+    examples: [
+      { es: 'Hoy he comido tarde.', fr: 'Aujourd\'hui j\'ai mangé tard.' },
+      { es: '¿Has estado alguna vez en Japón?', fr: 'Tu es déjà allé au Japon ?' },
+      { es: 'Todavía no he terminado.', fr: 'Je n\'ai pas encore terminé.' },
+    ],
+  },
+  {
+    es: 'Pretérito pluscuamperfecto',
+    fr: 'Plus-que-parfait',
+    triggers: ['ya', 'cuando llegué...', 'antes de que', 'nunca antes'],
+    usage: 'Action passée antérieure à une autre action passée. Toujours en relation avec un autre moment du passé.',
+    examples: [
+      { es: 'Cuando llegué, ya había salido.', fr: 'Quand je suis arrivé, il était déjà parti.' },
+      { es: 'Nunca había visto tanta nieve.', fr: 'Je n\'avais jamais vu autant de neige.' },
+      { es: 'Le dije que había estudiado.', fr: 'Je lui ai dit que j\'avais étudié.' },
+    ],
+  },
+  {
+    es: 'Futuro simple',
+    fr: 'Futur simple',
+    triggers: ['mañana', 'el próximo año', 'dentro de poco', 'seguramente'],
+    usage: 'Actions futures, prédictions, suppositions sur le présent. Aussi utilisé pour exprimer une probabilité ("doit être").',
+    examples: [
+      { es: 'Mañana lloverá en Madrid.', fr: 'Demain il pleuvra à Madrid.' },
+      { es: '¿Cuántos años tendrá?', fr: 'Quel âge peut-il bien avoir ? (supposition)' },
+      { es: 'Será las tres.', fr: 'Il doit être trois heures.' },
+    ],
+  },
+  {
+    es: 'Condicional simple',
+    fr: 'Conditionnel présent',
+    triggers: ['si pudiera...', 'me gustaría', 'debería', 'en tu lugar'],
+    usage: 'Hypothèses, désirs polis, suggestions, conséquence d\'une condition irréelle, ou futur dans le passé (discours indirect).',
+    examples: [
+      { es: 'Me gustaría vivir en Barcelona.', fr: 'J\'aimerais vivre à Barcelone.' },
+      { es: 'Si tuviera dinero, viajaría.', fr: 'Si j\'avais de l\'argent, je voyagerais.' },
+      { es: 'Dijo que vendría.', fr: 'Il a dit qu\'il viendrait. (futur dans le passé)' },
+    ],
+  },
+  {
+    es: 'Subjuntivo presente',
+    fr: 'Subjonctif présent',
+    triggers: ['quiero que', 'es importante que', 'ojalá', 'cuando (futur)', 'aunque'],
+    usage: 'Subordonnées exprimant un souhait, une émotion, un doute, une hypothèse ou une condition future. Se déclenche après certaines conjonctions et verbes de volonté/sentiment.',
+    examples: [
+      { es: 'Quiero que vengas.', fr: 'Je veux que tu viennes.' },
+      { es: 'Ojalá haga buen tiempo.', fr: 'Pourvu qu\'il fasse beau.' },
+      { es: 'Cuando llegues, llámame.', fr: 'Quand tu arriveras, appelle-moi.' },
+    ],
+  },
+  {
+    es: 'Subjuntivo imperfecto',
+    fr: 'Subjonctif imparfait',
+    triggers: ['si... (irréel)', 'quería que', 'como si', 'ojalá (passé)'],
+    usage: 'Subjonctif dans un contexte passé, hypothèses irréelles au présent (si + imparfait subj. + conditionnel), discours indirect passé.',
+    examples: [
+      { es: 'Si tuviera tiempo, estudiaría más.', fr: 'Si j\'avais le temps, j\'étudierais plus.' },
+      { es: 'Quería que vinieras.', fr: 'Je voulais que tu viennes.' },
+      { es: 'Habla como si supiera todo.', fr: 'Il parle comme s\'il savait tout.' },
+    ],
+  },
+  {
+    es: 'Imperativo',
+    fr: 'Impératif affirmatif',
+    triggers: ['¡ven!', '¡habla!', 'ordre direct', 'instruction'],
+    usage: 'Ordres et instructions directes. Pas de forme pour yo. Attention aux irréguliers : tú → haz, di, pon, sal, ten, ven, ve, sé.',
+    examples: [
+      { es: '¡Habla más despacio!', fr: 'Parle plus lentement !' },
+      { es: 'Ven aquí.', fr: 'Viens ici.' },
+      { es: 'Comed despacio.', fr: 'Mangez lentement. (vosotros)' },
+    ],
+  },
+  {
+    es: 'Imperativo negativo',
+    fr: 'Impératif négatif',
+    triggers: ['¡no hagas!', 'interdiction', 'no + subjonctif'],
+    usage: 'Interdictions directes. Se forme avec "no" + subjonctif présent. Différent de l\'impératif affirmatif : tú → habla (aff.) mais no hables (nég.).',
+    examples: [
+      { es: '¡No hables tan rápido!', fr: 'Ne parle pas si vite !' },
+      { es: 'No lo hagas.', fr: 'Ne fais pas ça.' },
+      { es: 'No comáis antes de las 8.', fr: 'Ne mangez pas avant 8h. (vosotros)' },
+    ],
+  },
+];
+
+function renderGuide() {
+  const container = document.getElementById('guide-content');
+  container.innerHTML = GUIDE_DATA.map((t, i) => `
+    <div class="guide-tense" id="guide-${i}">
+      <div class="guide-tense-header" onclick="toggleGuide(${i})">
+        <div>
+          <div class="guide-tense-name">${t.es}</div>
+          <div class="guide-tense-fr">${t.fr}</div>
+        </div>
+        <span class="guide-chevron">▼</span>
+      </div>
+      <div class="guide-tense-body">
+        <div class="guide-trigger">${t.triggers.join(' · ')}</div>
+        <div class="guide-usage">${t.usage}</div>
+        <div class="guide-examples">
+          ${t.examples.map(ex => `
+            <div class="guide-example">
+              <div class="guide-es">${ex.es}</div>
+              <div class="guide-fr">${ex.fr}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`).join('');
+  showScreen('guide');
+}
+
+function toggleGuide(i) {
+  document.getElementById('guide-' + i).classList.toggle('open');
+}
