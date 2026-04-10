@@ -2,94 +2,69 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Conjugaison Espagnol</title>
-  <meta name="description" content="Apprends la conjugaison espagnole avec la répétition espacée SM-2" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Conjugar — Espagnol</title>
   <meta name="theme-color" content="#0f0f0e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Conjugar" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-
 <div id="app">
 
-  <!-- ─── TOPBAR ──────────────────────────────────────────────────────────── -->
-<div class="topbar">
-  <span class="topbar-brand">conjugar</span>
-  <div class="topbar-nav">
-    <button class="btn btn-sm btn-ghost" id="btn-guide">Guide</button>
-    <button class="btn btn-sm btn-ghost" id="btn-manage">Cartes</button>
-    <button class="btn btn-sm btn-ghost" id="btn-settings">Réglages</button>
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <span class="topbar-brand">conjugar</span>
+    <div class="topbar-nav">
+      <button class="btn btn-sm btn-ghost" id="btn-guide">Guide</button>
+      <button class="btn btn-sm btn-ghost" id="btn-manage">Cartes</button>
+      <button class="btn btn-sm btn-ghost" id="btn-settings">Réglages</button>
+    </div>
   </div>
-</div>
 
-  <!-- ─── HOME ────────────────────────────────────────────────────────────── -->
+  <!-- HOME -->
   <div id="screen-home" class="screen">
     <h1 class="home-title">Aprende a<br><em>conjugar</em></h1>
-    <p class="home-sub">Répétition espacée · Algorithmique SM-2 · Espagnol</p>
-
+    <p class="home-sub">Répétition espacée · SM-2 · Espagnol</p>
     <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-val accent" id="stat-due">0</div>
-        <div class="stat-lbl">À réviser</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" id="stat-learning">0</div>
-        <div class="stat-lbl">En cours</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" id="stat-mastered">0</div>
-        <div class="stat-lbl">Maîtrisées</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" id="stat-total">0</div>
-        <div class="stat-lbl">Total</div>
-      </div>
+      <div class="stat-card"><div class="stat-val accent" id="stat-due">0</div><div class="stat-lbl">À réviser</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-learning">0</div><div class="stat-lbl">En cours</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-mastered">0</div><div class="stat-lbl">Maîtrisées</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-total">0</div><div class="stat-lbl">Total</div></div>
     </div>
-
     <div class="home-actions">
       <button class="btn btn-primary btn-full" id="btn-study">Commencer la révision</button>
     </div>
   </div>
 
-  <!-- ─── STUDY ────────────────────────────────────────────────────────────── -->
+  <!-- STUDY -->
   <div id="screen-study" class="screen">
     <div class="study-topbar">
       <button class="btn btn-sm btn-ghost" onclick="renderHome()">← Quitter</button>
       <span class="study-counter" id="study-counter"></span>
     </div>
-
-    <div class="progress-wrap">
-      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
-    </div>
-
+    <div class="progress-wrap"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
     <div class="card">
       <div class="card-tense" id="card-tense"></div>
       <div class="card-main" id="card-main"></div>
       <div class="card-pronoun" id="card-pronoun"></div>
       <div class="card-meaning" id="card-meaning"></div>
     </div>
-
     <div class="input-wrap">
-      <input
-        type="text"
-        id="answer-input"
-        class="answer-input"
+      <input type="text" id="answer-input" class="answer-input"
         placeholder="Écris la conjugaison…"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-      />
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
     </div>
-
     <div id="feedback" class="feedback" style="display:none"></div>
-
     <div id="next-review-hint" class="next-review-hint"></div>
-
     <button class="btn btn-primary btn-full" id="btn-check" style="margin-top:0.5rem">Vérifier</button>
   </div>
 
-  <!-- ─── DONE ─────────────────────────────────────────────────────────────── -->
+  <!-- DONE -->
   <div id="screen-done" class="screen">
     <div class="done-wrap">
       <div class="done-icon">¡Bien!</div>
@@ -100,71 +75,35 @@
     </div>
   </div>
 
-  <!-- ─── SETTINGS ─────────────────────────────────────────────────────────── -->
+  <!-- SETTINGS -->
   <div id="screen-settings" class="screen">
     <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
       <button class="btn btn-sm btn-ghost" data-back="settings">← Retour</button>
       <h2 class="screen-title" style="margin:0">Réglages</h2>
     </div>
-
     <div class="scroll-area">
-
       <div class="settings-section">
         <div class="settings-section-title">Temps à réviser</div>
         <div class="checkbox-grid">
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-presente" checked />
-            <span>Présent</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-indefinido" />
-            <span>Prétérit indéfini</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-imperfecto" />
-            <span>Imparfait</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-perfecto" />
-            <span>Parfait composé</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-pluscuamperfecto" />
-            <span>Plus-que-parfait</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-futuro" />
-            <span>Futur simple</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-condicional" />
-            <span>Conditionnel</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-subjuntivo_presente" />
-            <span>Subjonctif présent</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-subjuntivo_imperfecto" />
-            <span>Subjonctif imparfait</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-imperativo" />
-            <span>Impératif</span>
-          </label>
-          <label class="checkbox-item">
-            <input type="checkbox" id="tense-imperativo_neg" />
-            <span>Impératif négatif</span>
-          </label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-presente" /><span>Présent</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-indefinido" /><span>Prétérit indéfini</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-imperfecto" /><span>Imparfait</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-perfecto" /><span>Parfait composé</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-pluscuamperfecto" /><span>Plus-que-parfait</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-futuro" /><span>Futur simple</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-condicional" /><span>Conditionnel</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-subjuntivo_presente" /><span>Subjonctif présent</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-subjuntivo_imperfecto" /><span>Subjonctif imparfait</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-imperativo" /><span>Impératif</span></label>
+          <label class="checkbox-item"><input type="checkbox" id="tense-imperativo_neg" /><span>Impératif négatif</span></label>
         </div>
       </div>
-
       <div class="settings-section">
         <div class="settings-section-title">Saisie</div>
         <div class="toggle-row">
           <div>
             <div class="toggle-label">Accents obligatoires</div>
-            <div class="toggle-desc">Désactivé : hablo = habló acceptés tous les deux</div>
+            <div class="toggle-desc">Désactivé : hablo = habló tous les deux acceptés</div>
           </div>
           <label class="toggle">
             <input type="checkbox" id="toggle-accent" />
@@ -172,37 +111,27 @@
           </label>
         </div>
       </div>
-
       <div class="settings-section">
         <div class="settings-section-title">IA — Explications (OpenRouter)</div>
         <label class="input-label" for="openrouter-key">Clé API OpenRouter</label>
-        <input
-          type="password"
-          id="openrouter-key"
-          class="text-input"
-          placeholder="sk-or-v1-…"
-          autocomplete="off"
-        />
-        <div class="input-hint">Optionnel · Utilisé uniquement quand tu rates une carte pour générer une explication grammaticale</div>
+        <input type="password" id="openrouter-key" class="text-input" placeholder="sk-or-v1-…" autocomplete="off" />
+        <div class="input-hint">Optionnel · Explication grammaticale quand tu rates une carte</div>
       </div>
-
       <div class="settings-section">
         <div class="settings-section-title">Données</div>
         <button class="btn" style="color:var(--wrong);border-color:rgba(192,90,74,0.3)" onclick="resetData()">
           Réinitialiser toute la progression
         </button>
       </div>
-
     </div>
   </div>
 
-  <!-- ─── MANAGE (CARD LIST) ────────────────────────────────────────────────── -->
+  <!-- MANAGE -->
   <div id="screen-manage" class="screen">
     <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem">
-      <button class="btn btn-sm btn-ghost" data-back="home" onclick="renderHome()">← Retour</button>
+      <button class="btn btn-sm btn-ghost" onclick="renderHome()">← Retour</button>
       <h2 class="screen-title" style="margin:0">Toutes les cartes</h2>
     </div>
-
     <div class="filter-bar">
       <button class="filter-chip active" data-filter="all">Toutes</button>
       <button class="filter-chip" data-filter="due">À réviser</button>
@@ -210,13 +139,12 @@
       <button class="filter-chip" data-filter="mastered">Maîtrisées</button>
       <button class="filter-chip" data-filter="new">Nouvelles</button>
     </div>
-
     <div class="scroll-area">
       <div id="card-list" class="card-list"></div>
     </div>
   </div>
 
-  <!-- ─── GUIDE ─────────────────────────────────────────────────────────────── -->
+  <!-- GUIDE -->
   <div id="screen-guide" class="screen">
     <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
       <button class="btn btn-sm btn-ghost" onclick="renderHome()">← Retour</button>
@@ -238,7 +166,9 @@
     state = getOrInitState(settings);
     renderHome();
   }
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  }
 </script>
-
 </body>
 </html>
