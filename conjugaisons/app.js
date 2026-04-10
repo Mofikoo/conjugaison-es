@@ -1,11 +1,11 @@
 // ─── APP STATE ───────────────────────────────────────────────────────────────
 let settings = loadSettings();
 let state    = getOrInitState(settings);
-let queue    = [];
+let queue    = [];        // cartes à faire cette session
+let failQueue = [];       // cartes en échec à repasser dans 5 min
 let current  = null;
 let sessionCorrect = 0;
 let sessionTotal   = 0;
-let aiPending      = false;
 
 // ─── SCREEN ROUTING ──────────────────────────────────────────────────────────
 function showScreen(id) {
@@ -34,6 +34,7 @@ function renderHome() {
 function startSession() {
   state = getOrInitState(settings);
   queue = getDueCards(state, settings).sort(() => Math.random() - 0.5);
+  failQueue = [];
   if (queue.length === 0) { renderHome(); return; }
   sessionCorrect = 0;
   sessionTotal   = queue.length;
@@ -42,32 +43,47 @@ function startSession() {
 }
 
 function renderNextCard() {
+  // Réinjecter les cartes échec dont les 5 min sont écoulées
+  const t = now();
+  const ready = failQueue.filter(c => state[c.id].nextReview <= t);
+  if (ready.length > 0) {
+    failQueue = failQueue.filter(c => state[c.id].nextReview > t);
+    queue.push(...ready.sort(() => Math.random() - 0.5));
+  }
+
   if (queue.length === 0) {
-    renderDone();
+    if (failQueue.length > 0) {
+      // Cartes échouées pas encore prêtes → attendre
+      const nextMs = Math.min(...failQueue.map(c => state[c.id].nextReview)) - now();
+      const mins   = Math.ceil(nextMs / 60000);
+      setText('done-score', failQueue.length + '');
+      setText('done-correct', `carte${failQueue.length > 1 ? 's' : ''} en attente — repassent dans ~${mins} min`);
+      document.getElementById('btn-done-home').textContent = 'Retour à l\'accueil';
+      showScreen('done');
+    } else {
+      renderDone();
+    }
     return;
   }
+
   current = queue[0];
-  const done = sessionTotal - queue.length;
+  const done = sessionTotal - queue.length - failQueue.length;
 
-  // Progress
-  const pct = Math.round((done / sessionTotal) * 100);
+  const pct = Math.round((Math.max(0, done) / sessionTotal) * 100);
   document.getElementById('progress-fill').style.width = pct + '%';
-  setText('study-counter', `${done + 1} / ${sessionTotal}`);
+  setText('study-counter', `${queue.length + failQueue.length} restante${queue.length + failQueue.length > 1 ? 's' : ''}`);
 
-  // Card front
-  setText('card-tense', current.tenseLabel.toUpperCase());
-  setText('card-main',  current.verb);
+  setText('card-tense',   current.tenseLabel.toUpperCase());
+  setText('card-main',    current.verb);
   setText('card-pronoun', current.pronoun);
   setText('card-meaning', current.verbLabel);
 
-  // Reset input
   const inp = document.getElementById('answer-input');
   inp.value = '';
   inp.className = 'answer-input';
   inp.disabled = false;
   inp.focus();
 
-  // Hide feedback, show check btn
   hide('feedback');
   show('btn-check');
   setText('next-review-hint', '');
@@ -89,7 +105,6 @@ function checkAnswer() {
 
   if (isOk) sessionCorrect++;
 
-  // Render feedback
   const fb = document.getElementById('feedback');
   fb.innerHTML = '';
 
@@ -107,8 +122,7 @@ function checkAnswer() {
         <div style="margin-top:0.4rem;font-size:0.8rem;color:var(--text3)">Ta réponse : <span style="color:var(--wrong)">${typed || '—'}</span></div>
       </div>`;
 
-    // AI explanation if key set
-    if (settings.openrouterKey && !isOk) {
+    if (settings.openrouterKey) {
       const aiBox = document.createElement('div');
       aiBox.className = 'ai-box';
       aiBox.innerHTML = `<div class="ai-box-header"><div class="ai-dot"></div>Explication IA</div><div class="ai-loading">Chargement…</div>`;
@@ -117,15 +131,16 @@ function checkAnswer() {
     }
   }
 
-  // Rating row
+  // 4 boutons de notation
   const ratingDiv = document.createElement('div');
   ratingDiv.id = 'rating-zone';
   ratingDiv.innerHTML = `
     <div class="rating-label">Comment c'était ?</div>
-    <div class="rating-grid">
-      <button class="rating-btn r-fail" onclick="rate(1)">À revoir</button>
-      <button class="rating-btn r-hard" onclick="rate(3)">Difficile</button>
-      <button class="rating-btn r-easy" onclick="rate(5)">Facile</button>
+    <div class="rating-grid-4">
+      <button class="rating-btn r-fail"  onclick="rate(1)">Échec<span class="rating-sub">→ 5 min</span></button>
+      <button class="rating-btn r-hard"  onclick="rate(2)">Difficile<span class="rating-sub">→ demain</span></button>
+      <button class="rating-btn r-good"  onclick="rate(4)">Bon<span class="rating-sub">→ intervalle ×</span></button>
+      <button class="rating-btn r-easy"  onclick="rate(5)">Facile<span class="rating-sub">→ intervalle ++</span></button>
     </div>
     <div class="next-review-hint" id="next-review-hint"></div>`;
   fb.appendChild(ratingDiv);
@@ -158,8 +173,14 @@ function rate(q) {
   setText('next-review-hint', 'Prochaine révision : ' + formatNextReview(updated.nextReview));
   document.querySelectorAll('.rating-btn').forEach(b => b.disabled = true);
 
-  queue.shift();
-  setTimeout(() => renderNextCard(), 900);
+  const card = queue.shift();
+
+  if (q === 1) {
+    // Échec → file d'attente 5 min
+    failQueue.push(card);
+  }
+
+  setTimeout(() => renderNextCard(), 800);
 }
 
 // ─── DONE ─────────────────────────────────────────────────────────────────────
@@ -167,44 +188,32 @@ function renderDone() {
   const pct = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0;
   setText('done-score', pct + '%');
   setText('done-correct', `${sessionCorrect} / ${sessionTotal} correctes`);
+  document.getElementById('btn-done-home').textContent = 'Retour à l\'accueil';
   showScreen('done');
 }
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
 function renderSettings() {
-  // Tenses — driven by TENSE_LABELS keys
   Object.keys(TENSE_LABELS).forEach(t => {
     const cb = document.getElementById('tense-' + t);
-    if (cb) {
-      cb.checked = !!settings.tenses[t];
-      syncCheckbox(cb);
-    }
+    if (cb) { cb.checked = !!settings.tenses[t]; syncCheckbox(cb); }
   });
-
-  // Strict accents toggle
   const acc = document.getElementById('toggle-accent');
   if (acc) acc.checked = !!settings.accentStrict;
-
-  // OpenRouter key
   const key = document.getElementById('openrouter-key');
   if (key) key.value = settings.openrouterKey || '';
-
   showScreen('settings');
 }
 
 function saveSettingsFromUI() {
-  // Tenses — driven by TENSE_LABELS keys
   Object.keys(TENSE_LABELS).forEach(t => {
     const cb = document.getElementById('tense-' + t);
     if (cb) settings.tenses[t] = cb.checked;
   });
-  // At least one tense must be on
   const anyTense = Object.values(settings.tenses).some(Boolean);
   if (!anyTense) settings.tenses.presente = true;
-
   settings.accentStrict = document.getElementById('toggle-accent')?.checked ?? false;
   settings.openrouterKey = (document.getElementById('openrouter-key')?.value || '').trim();
-
   saveSettings(settings);
   state = getOrInitState(settings);
 }
@@ -227,7 +236,6 @@ function renderCardList() {
   const t = now();
   const cards = getActiveCards(settings);
 
-  // Chips
   document.querySelectorAll('.filter-chip').forEach(c => {
     c.classList.toggle('active', c.dataset.filter === manageFilter);
   });
@@ -240,7 +248,7 @@ function renderCardList() {
       if (manageFilter === 'due')      return s.nextReview <= t;
       if (manageFilter === 'mastered') return s.repetitions >= 4 && s.interval >= 21;
       if (manageFilter === 'learning') return s.repetitions > 0 && !(s.repetitions >= 4 && s.interval >= 21);
-      if (manageFilter === 'new')      return s.repetitions === 0;
+      if (manageFilter === 'new')      return s.repetitions === 0 && !s.failed;
       return true;
     });
   }
@@ -252,9 +260,9 @@ function renderCardList() {
 
   container.innerHTML = list.slice(0, 200).map(c => {
     const s = state[c.id];
-    const isDue = s.nextReview <= t;
-    const isNew = s.repetitions === 0;
-    const isMastered = s.repetitions >= 4 && s.interval >= 21;
+    const isDue     = s.nextReview <= t;
+    const isNew     = s.repetitions === 0 && !s.failed;
+    const isMastered= s.repetitions >= 4 && s.interval >= 21;
     const pill = isDue && !isNew
       ? '<span class="pill pill-due">À réviser</span>'
       : isNew
@@ -281,11 +289,10 @@ function hide(id) { const el = document.getElementById(id); if (el) el.style.dis
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-
-  // Navigation
   document.getElementById('btn-study').addEventListener('click', startSession);
   document.getElementById('btn-settings').addEventListener('click', renderSettings);
   document.getElementById('btn-manage').addEventListener('click', renderManage);
+  document.getElementById('btn-guide').addEventListener('click', () => showScreen('guide'));
   document.getElementById('btn-done-home').addEventListener('click', () => renderHome());
 
   document.querySelectorAll('[data-back]').forEach(btn => {
@@ -295,23 +302,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Study
   document.getElementById('btn-check').addEventListener('click', checkAnswer);
   document.getElementById('answer-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       const fb = document.getElementById('feedback');
-      if (fb.style.display === 'none' || !fb.style.display) {
-        checkAnswer();
-      }
+      if (fb.style.display === 'none' || !fb.style.display) checkAnswer();
     }
   });
 
-  // Settings live sync for checkboxes
   document.querySelectorAll('.checkbox-item input[type=checkbox]').forEach(cb => {
     cb.addEventListener('change', () => syncCheckbox(cb));
   });
 
-  // Manage filter chips
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       manageFilter = chip.dataset.filter;
@@ -319,6 +321,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Initial render
+  // Guide accordion
+  document.querySelectorAll('.guide-header').forEach(h => {
+    h.addEventListener('click', () => {
+      const item = h.closest('.guide-item');
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.guide-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+
   renderHome();
 });

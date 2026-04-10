@@ -27,7 +27,7 @@ Sois précis, pédagogique, et va droit au but. Pas de fioritures.`;
         'X-Title': 'Conjugaison Espagnol',
       },
       body: JSON.stringify({
-        model: 'google/gemini-flash-1.5',
+        model: 'google/gemini-2.0-flash-lite-001',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }],
       }),
