@@ -1,9 +1,9 @@
 // ─── APP STATE ───────────────────────────────────────────────────────────────
-let settings = loadSettings();
-let state    = getOrInitState(settings);
-let queue    = [];        // cartes à faire cette session
-let failQueue = [];       // cartes en échec à repasser dans 5 min
-let current  = null;
+let settings  = loadSettings();
+let state     = getOrInitState(settings);
+let queue     = [];
+let failQueue = [];
+let current   = null;
 let sessionCorrect = 0;
 let sessionTotal   = 0;
 
@@ -15,7 +15,14 @@ function showScreen(id) {
 }
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
-function renderHome() {
+async function renderHome() {
+  // Pull Supabase si configuré
+  const remote = await supabasePull(settings);
+  if (remote) {
+    // Merge : remote gagne sur local pour les cartes connues
+    Object.entries(remote).forEach(([id, s]) => { state[id] = s; });
+    saveState(state);
+  }
   state = getOrInitState(settings);
   const stats = getStats(state, settings);
   setText('stat-due',      stats.due);
@@ -33,7 +40,7 @@ function renderHome() {
 // ─── STUDY SESSION ────────────────────────────────────────────────────────────
 function startSession() {
   state = getOrInitState(settings);
-  queue = getDueCards(state, settings).sort(() => Math.random() - 0.5);
+  queue     = getDueCards(state, settings).sort(() => Math.random() - 0.5);
   failQueue = [];
   if (queue.length === 0) { renderHome(); return; }
   sessionCorrect = 0;
@@ -53,7 +60,6 @@ function renderNextCard() {
 
   if (queue.length === 0) {
     if (failQueue.length > 0) {
-      // Cartes échouées pas encore prêtes → attendre
       const nextMs = Math.min(...failQueue.map(c => state[c.id].nextReview)) - now();
       const mins   = Math.ceil(nextMs / 60000);
       setText('done-score', failQueue.length + '');
@@ -67,11 +73,10 @@ function renderNextCard() {
   }
 
   current = queue[0];
-  const done = sessionTotal - queue.length - failQueue.length;
-
-  const pct = Math.round((Math.max(0, done) / sessionTotal) * 100);
-  document.getElementById('progress-fill').style.width = pct + '%';
-  setText('study-counter', `${queue.length + failQueue.length} restante${queue.length + failQueue.length > 1 ? 's' : ''}`);
+  const remaining = queue.length + failQueue.length;
+  const done = sessionTotal - remaining;
+  document.getElementById('progress-fill').style.width = Math.round((done / sessionTotal) * 100) + '%';
+  setText('study-counter', `${remaining} restante${remaining > 1 ? 's' : ''}`);
 
   setText('card-tense',   current.tenseLabel.toUpperCase());
   setText('card-main',    current.verb);
@@ -102,7 +107,6 @@ function checkAnswer() {
 
   inp.disabled = true;
   inp.className = 'answer-input ' + (isOk ? 'correct' : 'wrong');
-
   if (isOk) sessionCorrect++;
 
   const fb = document.getElementById('feedback');
@@ -111,36 +115,40 @@ function checkAnswer() {
   if (isOk) {
     fb.innerHTML = `
       <div class="feedback-correct">
-        <div class="fb-label ok">Correct</div>
+        <div class="fb-label ok">Correct ✓</div>
         <div class="fb-answer ok">${current.answer}</div>
       </div>`;
   } else {
     fb.innerHTML = `
       <div class="feedback-wrong-panel">
         <div class="fb-label bad">Bonne réponse</div>
-        <div class="fb-answer ok" style="color:var(--correct)">${current.answer}</div>
-        <div style="margin-top:0.4rem;font-size:0.8rem;color:var(--text3)">Ta réponse : <span style="color:var(--wrong)">${typed || '—'}</span></div>
+        <div class="fb-answer" style="color:var(--correct)">${current.answer}</div>
+        <div style="margin-top:0.3rem;font-size:0.82rem;color:var(--text3)">Ta réponse : <span style="color:var(--wrong)">${typed || '—'}</span></div>
       </div>`;
-
-    if (settings.openrouterKey) {
-      const aiBox = document.createElement('div');
-      aiBox.className = 'ai-box';
-      aiBox.innerHTML = `<div class="ai-box-header"><div class="ai-dot"></div>Explication IA</div><div class="ai-loading">Chargement…</div>`;
-      fb.appendChild(aiBox);
-      fetchAI(aiBox, typed);
+    // Conjugaison complète du verbe à ce temps
+    const conjugaison = getFullConjugation(current);
+    if (conjugaison) {
+      const rows = conjugaison.map(({pronoun, form}) =>
+        `<tr><td style="color:var(--text3);padding:3px 12px 3px 0;font-size:0.82rem">${pronoun}</td><td style="font-family:var(--font-display);font-style:italic;font-size:0.9rem;color:${form === current.answer ? 'var(--accent)' : 'var(--text)'}">${form}</td></tr>`
+      ).join('');
+      const box = document.createElement('div');
+      box.className = 'ai-box';
+      box.innerHTML = `
+        <div class="ai-box-header"><div class="ai-dot"></div>${current.verb} — ${current.tenseLabel}</div>
+        <table style="border-collapse:collapse;width:100%">${rows}</table>`;
+      fb.appendChild(box);
     }
   }
 
   // 4 boutons de notation
   const ratingDiv = document.createElement('div');
-  ratingDiv.id = 'rating-zone';
   ratingDiv.innerHTML = `
     <div class="rating-label">Comment c'était ?</div>
     <div class="rating-grid-4">
-      <button class="rating-btn r-fail"  onclick="rate(1)">Échec<span class="rating-sub">→ 5 min</span></button>
-      <button class="rating-btn r-hard"  onclick="rate(2)">Difficile<span class="rating-sub">→ demain</span></button>
-      <button class="rating-btn r-good"  onclick="rate(4)">Bon<span class="rating-sub">→ intervalle ×</span></button>
-      <button class="rating-btn r-easy"  onclick="rate(5)">Facile<span class="rating-sub">→ intervalle ++</span></button>
+      <button class="rating-btn r-fail" onclick="rate(1)">Échec<span class="rating-sub">→ 5 min</span></button>
+      <button class="rating-btn r-hard" onclick="rate(2)">Difficile<span class="rating-sub">→ demain</span></button>
+      <button class="rating-btn r-ok"   onclick="rate(4)">Bon<span class="rating-sub">→ normal</span></button>
+      <button class="rating-btn r-easy" onclick="rate(5)">Facile<span class="rating-sub">→ allongé</span></button>
     </div>
     <div class="next-review-hint" id="next-review-hint"></div>`;
   fb.appendChild(ratingDiv);
@@ -149,36 +157,18 @@ function checkAnswer() {
   hide('btn-check');
 }
 
-async function fetchAI(container, userAnswer) {
-  const explanation = await getAIExplanation(current, userAnswer, settings);
-  const loadingEl = container.querySelector('.ai-loading');
-  if (loadingEl) {
-    if (explanation) {
-      loadingEl.className = '';
-      loadingEl.style.color = 'var(--text2)';
-      loadingEl.style.lineHeight = '1.65';
-      loadingEl.textContent = explanation;
-    } else {
-      loadingEl.textContent = 'Explication indisponible.';
-    }
-  }
-}
-
 function rate(q) {
   if (!current) return;
   const updated = sm2Update(state[current.id], q);
   state[current.id] = { ...state[current.id], ...updated };
   saveState(state);
+  supabasePush(state, settings); // sync cross-platform en arrière-plan
 
   setText('next-review-hint', 'Prochaine révision : ' + formatNextReview(updated.nextReview));
   document.querySelectorAll('.rating-btn').forEach(b => b.disabled = true);
 
   const card = queue.shift();
-
-  if (q === 1) {
-    // Échec → file d'attente 5 min
-    failQueue.push(card);
-  }
+  if (q === 1) failQueue.push(card); // Échec → file d'attente 5 min
 
   setTimeout(() => renderNextCard(), 800);
 }
@@ -198,10 +188,12 @@ function renderSettings() {
     const cb = document.getElementById('tense-' + t);
     if (cb) { cb.checked = !!settings.tenses[t]; syncCheckbox(cb); }
   });
-  const acc = document.getElementById('toggle-accent');
-  if (acc) acc.checked = !!settings.accentStrict;
-  const key = document.getElementById('openrouter-key');
-  if (key) key.value = settings.openrouterKey || '';
+  const el = (id) => document.getElementById(id);
+  if (el('toggle-accent'))    el('toggle-accent').checked    = !!settings.accentStrict;
+  if (el('openrouter-key'))   el('openrouter-key').value     = settings.openrouterKey || '';
+  if (el('supabase-url'))     el('supabase-url').value       = settings.supabaseUrl   || '';
+  if (el('supabase-key'))     el('supabase-key').value       = settings.supabaseKey   || '';
+  if (el('supabase-user'))    el('supabase-user').value      = settings.userId        || '';
   showScreen('settings');
 }
 
@@ -212,8 +204,12 @@ function saveSettingsFromUI() {
   });
   const anyTense = Object.values(settings.tenses).some(Boolean);
   if (!anyTense) settings.tenses.presente = true;
-  settings.accentStrict = document.getElementById('toggle-accent')?.checked ?? false;
-  settings.openrouterKey = (document.getElementById('openrouter-key')?.value || '').trim();
+  const val = (id) => (document.getElementById(id)?.value || '').trim();
+  settings.accentStrict  = document.getElementById('toggle-accent')?.checked ?? false;
+  settings.openrouterKey = val('openrouter-key');
+  settings.supabaseUrl   = val('supabase-url');
+  settings.supabaseKey   = val('supabase-key');
+  settings.userId        = val('supabase-user');
   saveSettings(settings);
   state = getOrInitState(settings);
 }
@@ -226,10 +222,7 @@ function syncCheckbox(cb) {
 // ─── MANAGE (CARD LIST) ───────────────────────────────────────────────────────
 let manageFilter = 'all';
 
-function renderManage() {
-  renderCardList();
-  showScreen('manage');
-}
+function renderManage() { renderCardList(); showScreen('manage'); }
 
 function renderCardList() {
   const container = document.getElementById('card-list');
@@ -248,38 +241,110 @@ function renderCardList() {
       if (manageFilter === 'due')      return s.nextReview <= t;
       if (manageFilter === 'mastered') return s.repetitions >= 4 && s.interval >= 21;
       if (manageFilter === 'learning') return s.repetitions > 0 && !(s.repetitions >= 4 && s.interval >= 21);
-      if (manageFilter === 'new')      return s.repetitions === 0 && !s.failed;
+      if (manageFilter === 'new')      return s.repetitions === 0;
       return true;
     });
   }
 
   if (list.length === 0) {
-    container.innerHTML = '<div class="empty-state"><span style="font-size:1.5rem">🔍</span><p>Aucune carte dans ce filtre.</p></div>';
+    container.innerHTML = '<div class="empty-state"><p>Aucune carte dans ce filtre.</p></div>';
     return;
   }
 
   container.innerHTML = list.slice(0, 200).map(c => {
     const s = state[c.id];
-    const isDue     = s.nextReview <= t;
-    const isNew     = s.repetitions === 0 && !s.failed;
-    const isMastered= s.repetitions >= 4 && s.interval >= 21;
-    const pill = isDue && !isNew
-      ? '<span class="pill pill-due">À réviser</span>'
-      : isNew
+    const isDue      = s.nextReview <= t;
+    const isNew      = s.repetitions === 0;
+    const isMastered = s.repetitions >= 4 && s.interval >= 21;
+    const pill = isNew
       ? '<span class="pill pill-new">Nouveau</span>'
+      : isDue
+      ? '<span class="pill pill-due">À réviser</span>'
       : isMastered
       ? '<span class="pill pill-ok">Maîtrisé</span>'
       : `<span class="pill pill-sched">${formatNextReview(s.nextReview)}</span>`;
-    return `
-      <div class="card-list-item">
-        <div class="cli-left">
-          <span class="cli-pronoun">${c.pronoun}</span>
-          <span class="cli-verb">${c.verb}</span>
-          <span class="cli-tense">(${c.tenseLabel})</span>
-        </div>
-        ${pill}
-      </div>`;
+    return `<div class="card-list-item">
+      <div class="cli-left">
+        <span class="cli-pronoun">${c.pronoun}</span>
+        <span class="cli-verb">${c.verb}</span>
+        <span class="cli-tense">(${c.tenseLabel})</span>
+      </div>${pill}</div>`;
   }).join('');
+}
+
+// ─── TRADUCTION ───────────────────────────────────────────────────────────────
+let transData      = null;
+let transDirection = 'es-fr';
+let transLevel     = 'B1-B2';
+let transRevealed  = false;
+
+function renderTranslation() {
+  transRevealed = false;
+  showScreen('translation');
+  resetTranslationUI();
+}
+
+function resetTranslationUI() {
+  setText('trans-source-label', transDirection === 'es-fr' ? 'Espagnol → Français' : 'Français → Espagnol');
+  setText('trans-level-label', transLevel);
+  document.getElementById('trans-source-text').textContent = '';
+  document.getElementById('trans-user-input').value = '';
+  document.getElementById('trans-correction').style.display = 'none';
+  document.getElementById('trans-correction').innerHTML = '';
+  document.getElementById('trans-loading').style.display = 'none';
+  show('btn-trans-generate');
+  hide('btn-trans-check');
+}
+
+async function generateTranslation() {
+  if (!settings.openrouterKey) {
+    document.getElementById('trans-source-text').textContent = 'Configure ta clé OpenRouter dans Réglages pour utiliser cet exercice.';
+    return;
+  }
+  hide('btn-trans-generate');
+  document.getElementById('trans-loading').style.display = 'block';
+  document.getElementById('trans-source-text').textContent = 'Génération en cours…';
+  document.getElementById('trans-correction').style.display = 'none';
+  document.getElementById('trans-user-input').value = '';
+  transRevealed = false;
+
+  transData = await generateTranslationText(settings, transDirection, transLevel);
+  document.getElementById('trans-loading').style.display = 'none';
+
+  if (!transData) {
+    document.getElementById('trans-source-text').textContent = 'Erreur lors de la génération. Vérifie ta clé OpenRouter.';
+    show('btn-trans-generate');
+    return;
+  }
+
+  const sourceText = transDirection === 'es-fr' ? transData.text_es : transData.text_fr;
+  document.getElementById('trans-source-text').textContent = sourceText;
+  setText('trans-sujet', transData.sujet || '');
+  show('btn-trans-check');
+}
+
+function revealTranslation() {
+  if (!transData) return;
+  const correction = transDirection === 'es-fr' ? transData.text_fr : transData.text_es;
+  const correctionEl = document.getElementById('trans-correction');
+  correctionEl.innerHTML = `
+    <div class="trans-correction-label">Traduction</div>
+    <div class="trans-correction-text">${correction}</div>
+    <button class="btn btn-full" style="margin-top:1rem" onclick="generateTranslation()">Nouveau texte</button>`;
+  correctionEl.style.display = 'block';
+  hide('btn-trans-check');
+}
+
+function toggleTransDirection() {
+  transDirection = transDirection === 'es-fr' ? 'fr-es' : 'es-fr';
+  setText('trans-source-label', transDirection === 'es-fr' ? 'Espagnol → Français' : 'Français → Espagnol');
+  setText('btn-trans-dir', transDirection === 'es-fr' ? 'ES → FR' : 'FR → ES');
+}
+
+function toggleTransLevel() {
+  transLevel = transLevel === 'B1-B2' ? 'A1-A2' : 'B1-B2';
+  setText('trans-level-label', transLevel);
+  setText('btn-trans-level', transLevel);
 }
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
@@ -289,11 +354,23 @@ function hide(id) { const el = document.getElementById(id); if (el) el.style.dis
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('btn-study').addEventListener('click', startSession);
-  document.getElementById('btn-settings').addEventListener('click', renderSettings);
-  document.getElementById('btn-manage').addEventListener('click', renderManage);
-  document.getElementById('btn-guide').addEventListener('click', renderGuide);
-  document.getElementById('btn-done-home').addEventListener('click', () => renderHome());
+  function on(id, fn) {
+    const el = document.getElementById(id);
+    if (!el) { console.warn('Missing element:', id); return; }
+    el.addEventListener('click', fn);
+  }
+
+  on('btn-study',           startSession);
+  on('btn-settings',        renderSettings);
+  on('btn-manage',          renderManage);
+  on('btn-guide',           renderGuide);
+  on('btn-translation',     renderTranslation);
+  on('btn-done-home',       renderHome);
+  on('btn-check',           checkAnswer);
+  on('btn-trans-generate',  generateTranslation);
+  on('btn-trans-check',     revealTranslation);
+  on('btn-trans-dir',       toggleTransDirection);
+  on('btn-trans-level',     toggleTransLevel);
 
   document.querySelectorAll('[data-back]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -302,7 +379,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  document.getElementById('btn-check').addEventListener('click', checkAnswer);
   document.getElementById('answer-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       const fb = document.getElementById('feedback');
@@ -325,133 +401,198 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ─── GUIDE ────────────────────────────────────────────────────────────────────
+const TERMINAISONS = {
+  presente: {
+    ar: ['o','as','a','amos','áis','an'],
+    er: ['o','es','e','emos','éis','en'],
+    ir: ['o','es','e','imos','ís','en'],
+  },
+  indefinido: {
+    ar: ['é','aste','ó','amos','asteis','aron'],
+    er: ['í','iste','ió','imos','isteis','ieron'],
+    ir: ['í','iste','ió','imos','isteis','ieron'],
+  },
+  imperfecto: {
+    ar: ['aba','abas','aba','ábamos','abais','aban'],
+    er: ['ía','ías','ía','íamos','íais','ían'],
+    ir: ['ía','ías','ía','íamos','íais','ían'],
+  },
+  futuro: {
+    ar: ['aré','arás','ará','aremos','aréis','arán'],
+    er: ['eré','erás','erá','eremos','eréis','erán'],
+    ir: ['iré','irás','irá','iremos','iréis','irán'],
+  },
+  condicional: {
+    ar: ['aría','arías','aría','aríamos','aríais','arían'],
+    er: ['ería','erías','ería','eríamos','eríais','erían'],
+    ir: ['iría','irías','iría','iríamos','iríais','irían'],
+  },
+  subjuntivo_presente: {
+    ar: ['e','es','e','emos','éis','en'],
+    er: ['a','as','a','amos','áis','an'],
+    ir: ['a','as','a','amos','áis','an'],
+  },
+  subjuntivo_imperfecto: {
+    ar: ['ara','aras','ara','áramos','arais','aran'],
+    er: ['iera','ieras','iera','iéramos','ierais','ieran'],
+    ir: ['iera','ieras','iera','iéramos','ierais','ieran'],
+  },
+};
+
+function buildTerminaisonsTable(tenseKey) {
+  const data = TERMINAISONS[tenseKey];
+  if (!data) return '';
+  const pronouns = ['yo','tú','él/ella','nosotros','vosotros','ellos'];
+  const rows = pronouns.map((p, i) => `
+    <tr>
+      <td style="color:var(--text3);font-size:0.8rem;padding:4px 10px 4px 0">${p}</td>
+      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--accent)">-${data.ar[i]}</td>
+      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2)">-${data.er[i]}</td>
+      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2)">-${data.ir[i]}</td>
+    </tr>`).join('');
+  return `
+    <div style="margin-bottom:0.85rem">
+      <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:.07em">Terminaisons régulières</div>
+      <table style="border-collapse:collapse;width:100%">
+        <thead><tr>
+          <th style="font-size:0.72rem;color:var(--text3);font-weight:400;text-align:left;padding-bottom:4px"></th>
+          <th style="font-size:0.72rem;color:var(--accent);font-weight:500;text-align:left;padding-bottom:4px;padding-right:8px">-AR</th>
+          <th style="font-size:0.72rem;color:var(--text2);font-weight:400;text-align:left;padding-bottom:4px;padding-right:8px">-ER</th>
+          <th style="font-size:0.72rem;color:var(--text2);font-weight:400;text-align:left;padding-bottom:4px">-IR</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
 const GUIDE_DATA = [
   {
-    es: 'Presente',
-    fr: 'Présent de l\'indicatif',
-    triggers: ['ahora', 'siempre', 'todos los días', 'generalmente'],
-    usage: 'Actions habituelles, vérités générales, et ce qui se passe en ce moment. Aussi utilisé pour le futur proche et les récits au présent historique.',
+    tenseKey: 'presente',
+    es: 'Presente', fr: 'Présent de l\'indicatif',
+    triggers: ['ahora','siempre','todos los días','generalmente'],
+    usage: 'Actions habituelles, vérités générales, ce qui se passe en ce moment. Aussi pour le futur proche.',
     examples: [
-      { es: 'Trabajo en Madrid.', fr: 'Je travaille à Madrid.' },
-      { es: 'El sol sale por el este.', fr: 'Le soleil se lève à l\'est.' },
-      { es: 'Mañana voy al médico.', fr: 'Demain je vais chez le médecin. (futur proche)' },
+      {es:'Trabajo en Madrid.',fr:'Je travaille à Madrid.'},
+      {es:'El sol sale por el este.',fr:'Le soleil se lève à l\'est.'},
+      {es:'Mañana voy al médico.',fr:'Demain je vais chez le médecin.'},
     ],
   },
   {
-    es: 'Pretérito indefinido',
-    fr: 'Prétérit indéfini — passé simple',
-    triggers: ['ayer', 'el año pasado', 'en 2010', 'hace tres días'],
-    usage: 'Actions passées complètes et délimitées dans le temps. Rupture avec le présent. Idéal pour raconter une histoire ou une séquence d\'événements.',
+    tenseKey: 'indefinido',
+    es: 'Pretérito indefinido', fr: 'Prétérit indéfini',
+    triggers: ['ayer','el año pasado','en 2010','hace tres días'],
+    usage: 'Actions passées complètes et délimitées. Rupture avec le présent. Pour raconter une séquence d\'événements.',
     examples: [
-      { es: 'Ayer comí paella.', fr: 'Hier j\'ai mangé de la paëlla.' },
-      { es: 'Vivió en París durante dos años.', fr: 'Il a vécu à Paris pendant deux ans.' },
-      { es: 'Llegué, vi, vencí.', fr: 'Je suis arrivé, j\'ai vu, j\'ai vaincu.' },
+      {es:'Ayer comí paella.',fr:'Hier j\'ai mangé de la paëlla.'},
+      {es:'Vivió en París dos años.',fr:'Il a vécu à Paris deux ans.'},
+      {es:'Llegué, vi, vencí.',fr:'Je suis arrivé, j\'ai vu, j\'ai vaincu.'},
     ],
   },
   {
-    es: 'Pretérito imperfecto',
-    fr: 'Imparfait de l\'indicatif',
-    triggers: ['antes', 'cuando era niño', 'siempre (passé)', 'de niño'],
-    usage: 'Actions habituelles dans le passé, descriptions, contexte narratif, et actions en cours interrompues. Contraste avec l\'indéfini pour les récits.',
+    tenseKey: 'imperfecto',
+    es: 'Pretérito imperfecto', fr: 'Imparfait',
+    triggers: ['antes','cuando era niño','siempre (passé)','de niño'],
+    usage: 'Actions habituelles dans le passé, descriptions, contexte narratif. Contraste avec l\'indéfini pour les récits.',
     examples: [
-      { es: 'Cuando era niño, jugaba al fútbol.', fr: 'Quand j\'étais enfant, je jouais au foot.' },
-      { es: 'El cielo estaba nublado.', fr: 'Le ciel était nuageux. (description)' },
-      { es: 'Dormía cuando sonó el teléfono.', fr: 'Je dormais quand le téléphone a sonné.' },
+      {es:'Cuando era niño, jugaba al fútbol.',fr:'Quand j\'étais enfant, je jouais au foot.'},
+      {es:'El cielo estaba nublado.',fr:'Le ciel était nuageux.'},
+      {es:'Dormía cuando sonó el teléfono.',fr:'Je dormais quand le téléphone a sonné.'},
     ],
   },
   {
-    es: 'Pretérito perfecto compuesto',
-    fr: 'Passé composé (avec haber)',
-    triggers: ['hoy', 'esta semana', 'alguna vez', 'ya', 'todavía no'],
-    usage: 'Actions passées liées au présent (aujourd\'hui, cette semaine) ou expériences de vie. Dominant en Espagne, moins utilisé en Amérique latine.',
+    tenseKey: null,
+    es: 'Pretérito perfecto compuesto', fr: 'Passé composé',
+    triggers: ['hoy','esta semana','alguna vez','ya','todavía no'],
+    usage: 'Actions passées liées au présent. Dominant en Espagne, moins utilisé en Amérique latine.',
     examples: [
-      { es: 'Hoy he comido tarde.', fr: 'Aujourd\'hui j\'ai mangé tard.' },
-      { es: '¿Has estado alguna vez en Japón?', fr: 'Tu es déjà allé au Japon ?' },
-      { es: 'Todavía no he terminado.', fr: 'Je n\'ai pas encore terminé.' },
+      {es:'Hoy he comido tarde.',fr:'Aujourd\'hui j\'ai mangé tard.'},
+      {es:'¿Has estado en Japón?',fr:'Tu es déjà allé au Japon ?'},
+      {es:'Todavía no he terminado.',fr:'Je n\'ai pas encore terminé.'},
     ],
   },
   {
-    es: 'Pretérito pluscuamperfecto',
-    fr: 'Plus-que-parfait',
-    triggers: ['ya', 'cuando llegué...', 'antes de que', 'nunca antes'],
-    usage: 'Action passée antérieure à une autre action passée. Toujours en relation avec un autre moment du passé.',
+    tenseKey: null,
+    es: 'Pretérito pluscuamperfecto', fr: 'Plus-que-parfait',
+    triggers: ['ya','cuando llegué…','antes de que','nunca antes'],
+    usage: 'Action passée antérieure à une autre action passée. Formé avec había/habías… + participe.',
     examples: [
-      { es: 'Cuando llegué, ya había salido.', fr: 'Quand je suis arrivé, il était déjà parti.' },
-      { es: 'Nunca había visto tanta nieve.', fr: 'Je n\'avais jamais vu autant de neige.' },
-      { es: 'Le dije que había estudiado.', fr: 'Je lui ai dit que j\'avais étudié.' },
+      {es:'Cuando llegué, ya había salido.',fr:'Quand je suis arrivé, il était déjà parti.'},
+      {es:'Nunca había visto tanta nieve.',fr:'Je n\'avais jamais vu autant de neige.'},
     ],
   },
   {
-    es: 'Futuro simple',
-    fr: 'Futur simple',
-    triggers: ['mañana', 'el próximo año', 'dentro de poco', 'seguramente'],
-    usage: 'Actions futures, prédictions, suppositions sur le présent. Aussi utilisé pour exprimer une probabilité ("doit être").',
+    tenseKey: 'futuro',
+    es: 'Futuro simple', fr: 'Futur simple',
+    triggers: ['mañana','el próximo año','seguramente','dentro de poco'],
+    usage: 'Actions futures, prédictions, suppositions. Aussi pour exprimer une probabilité présente.',
     examples: [
-      { es: 'Mañana lloverá en Madrid.', fr: 'Demain il pleuvra à Madrid.' },
-      { es: '¿Cuántos años tendrá?', fr: 'Quel âge peut-il bien avoir ? (supposition)' },
-      { es: 'Será las tres.', fr: 'Il doit être trois heures.' },
+      {es:'Mañana lloverá.',fr:'Demain il pleuvra.'},
+      {es:'¿Cuántos años tendrá?',fr:'Quel âge peut-il avoir ? (supposition)'},
+      {es:'Será las tres.',fr:'Il doit être trois heures.'},
     ],
   },
   {
-    es: 'Condicional simple',
-    fr: 'Conditionnel présent',
-    triggers: ['si pudiera...', 'me gustaría', 'debería', 'en tu lugar'],
-    usage: 'Hypothèses, désirs polis, suggestions, conséquence d\'une condition irréelle, ou futur dans le passé (discours indirect).',
+    tenseKey: 'condicional',
+    es: 'Condicional simple', fr: 'Conditionnel',
+    triggers: ['si pudiera…','me gustaría','debería','en tu lugar'],
+    usage: 'Hypothèses, désirs polis, futur dans le passé (discours indirect).',
     examples: [
-      { es: 'Me gustaría vivir en Barcelona.', fr: 'J\'aimerais vivre à Barcelone.' },
-      { es: 'Si tuviera dinero, viajaría.', fr: 'Si j\'avais de l\'argent, je voyagerais.' },
-      { es: 'Dijo que vendría.', fr: 'Il a dit qu\'il viendrait. (futur dans le passé)' },
+      {es:'Me gustaría vivir en Barcelona.',fr:'J\'aimerais vivre à Barcelone.'},
+      {es:'Si tuviera dinero, viajaría.',fr:'Si j\'avais de l\'argent, je voyagerais.'},
+      {es:'Dijo que vendría.',fr:'Il a dit qu\'il viendrait.'},
     ],
   },
   {
-    es: 'Subjuntivo presente',
-    fr: 'Subjonctif présent',
-    triggers: ['quiero que', 'es importante que', 'ojalá', 'cuando (futur)', 'aunque'],
-    usage: 'Subordonnées exprimant un souhait, une émotion, un doute, une hypothèse ou une condition future. Se déclenche après certaines conjonctions et verbes de volonté/sentiment.',
+    tenseKey: 'subjuntivo_presente',
+    es: 'Subjuntivo presente', fr: 'Subjonctif présent',
+    triggers: ['quiero que','es importante que','ojalá','cuando (futur)'],
+    usage: 'Souhait, émotion, doute, condition future. Se déclenche après certains verbes et conjonctions.',
     examples: [
-      { es: 'Quiero que vengas.', fr: 'Je veux que tu viennes.' },
-      { es: 'Ojalá haga buen tiempo.', fr: 'Pourvu qu\'il fasse beau.' },
-      { es: 'Cuando llegues, llámame.', fr: 'Quand tu arriveras, appelle-moi.' },
+      {es:'Quiero que vengas.',fr:'Je veux que tu viennes.'},
+      {es:'Ojalá haga buen tiempo.',fr:'Pourvu qu\'il fasse beau.'},
+      {es:'Cuando llegues, llámame.',fr:'Quand tu arriveras, appelle-moi.'},
     ],
   },
   {
-    es: 'Subjuntivo imperfecto',
-    fr: 'Subjonctif imparfait',
-    triggers: ['si... (irréel)', 'quería que', 'como si', 'ojalá (passé)'],
-    usage: 'Subjonctif dans un contexte passé, hypothèses irréelles au présent (si + imparfait subj. + conditionnel), discours indirect passé.',
+    tenseKey: 'subjuntivo_imperfecto',
+    es: 'Subjuntivo imperfecto', fr: 'Subjonctif imparfait',
+    triggers: ['si… (irréel)','quería que','como si','ojalá (passé)'],
+    usage: 'Hypothèses irréelles au présent (si + subj. imparfait + conditionnel), discours indirect passé.',
     examples: [
-      { es: 'Si tuviera tiempo, estudiaría más.', fr: 'Si j\'avais le temps, j\'étudierais plus.' },
-      { es: 'Quería que vinieras.', fr: 'Je voulais que tu viennes.' },
-      { es: 'Habla como si supiera todo.', fr: 'Il parle comme s\'il savait tout.' },
+      {es:'Si tuviera tiempo, estudiaría más.',fr:'Si j\'avais le temps, j\'étudierais plus.'},
+      {es:'Quería que vinieras.',fr:'Je voulais que tu viennes.'},
+      {es:'Habla como si supiera todo.',fr:'Il parle comme s\'il savait tout.'},
     ],
   },
   {
-    es: 'Imperativo',
-    fr: 'Impératif affirmatif',
-    triggers: ['¡ven!', '¡habla!', 'ordre direct', 'instruction'],
-    usage: 'Ordres et instructions directes. Pas de forme pour yo. Attention aux irréguliers : tú → haz, di, pon, sal, ten, ven, ve, sé.',
+    tenseKey: null,
+    es: 'Imperativo', fr: 'Impératif affirmatif',
+    triggers: ['¡ven!','¡habla!','ordre direct','instruction'],
+    usage: 'Ordres et instructions. Pas de forme yo. Irréguliers tú : haz, di, pon, sal, ten, ven, ve, sé.',
     examples: [
-      { es: '¡Habla más despacio!', fr: 'Parle plus lentement !' },
-      { es: 'Ven aquí.', fr: 'Viens ici.' },
-      { es: 'Comed despacio.', fr: 'Mangez lentement. (vosotros)' },
+      {es:'¡Habla más despacio!',fr:'Parle plus lentement !'},
+      {es:'Ven aquí.',fr:'Viens ici.'},
+      {es:'Comed despacio.',fr:'Mangez lentement. (vosotros)'},
     ],
   },
   {
-    es: 'Imperativo negativo',
-    fr: 'Impératif négatif',
-    triggers: ['¡no hagas!', 'interdiction', 'no + subjonctif'],
-    usage: 'Interdictions directes. Se forme avec "no" + subjonctif présent. Différent de l\'impératif affirmatif : tú → habla (aff.) mais no hables (nég.).',
+    tenseKey: null,
+    es: 'Imperativo negativo', fr: 'Impératif négatif',
+    triggers: ['¡no hagas!','interdiction','no + subjonctif'],
+    usage: 'Interdictions. Se forme avec "no" + subjonctif présent. Ex : habla (aff.) → no hables (nég.).',
     examples: [
-      { es: '¡No hables tan rápido!', fr: 'Ne parle pas si vite !' },
-      { es: 'No lo hagas.', fr: 'Ne fais pas ça.' },
-      { es: 'No comáis antes de las 8.', fr: 'Ne mangez pas avant 8h. (vosotros)' },
+      {es:'¡No hables tan rápido!',fr:'Ne parle pas si vite !'},
+      {es:'No lo hagas.',fr:'Ne fais pas ça.'},
+      {es:'No comáis antes de las 8.',fr:'Ne mangez pas avant 8h.'},
     ],
   },
 ];
 
 function renderGuide() {
   const container = document.getElementById('guide-content');
-  container.innerHTML = GUIDE_DATA.map((t, i) => `
+  container.innerHTML = GUIDE_DATA.map((t, i) => {
+    const tableHTML = t.tenseKey ? buildTerminaisonsTable(t.tenseKey) : '';
+    return `
     <div class="guide-item" id="guide-${i}">
       <div class="guide-header" onclick="toggleGuide(${i})">
         <span class="guide-tense-name">${t.es} <em>${t.fr}</em></span>
@@ -460,15 +601,17 @@ function renderGuide() {
       <div class="guide-body">
         <div class="guide-use-row">${t.triggers.map(tag => `<span class="guide-tag">${tag}</span>`).join('')}</div>
         <div style="font-size:0.88rem;color:var(--text2);line-height:1.65;margin-bottom:0.85rem">${t.usage}</div>
+        ${tableHTML}
         <div class="guide-examples">
-          ${t.examples.map(ex => `
+          ${t.examples.map(ex=>`
             <div class="guide-ex">
               <div class="guide-es">${ex.es}</div>
               <div class="guide-fr">${ex.fr}</div>
             </div>`).join('')}
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   showScreen('guide');
 }
 

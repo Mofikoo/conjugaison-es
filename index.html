@@ -21,6 +21,7 @@
     <span class="topbar-brand">conjugar</span>
     <div class="topbar-nav">
       <button class="btn btn-sm btn-ghost" id="btn-guide">Guide</button>
+      <button class="btn btn-sm btn-ghost" id="btn-translation">Traduire</button>
       <button class="btn btn-sm btn-ghost" id="btn-manage">Cartes</button>
       <button class="btn btn-sm btn-ghost" id="btn-settings">Réglages</button>
     </div>
@@ -82,6 +83,7 @@
       <h2 class="screen-title" style="margin:0">Réglages</h2>
     </div>
     <div class="scroll-area">
+
       <div class="settings-section">
         <div class="settings-section-title">Temps à réviser</div>
         <div class="checkbox-grid">
@@ -98,6 +100,7 @@
           <label class="checkbox-item"><input type="checkbox" id="tense-imperativo_neg" /><span>Impératif négatif</span></label>
         </div>
       </div>
+
       <div class="settings-section">
         <div class="settings-section-title">Saisie</div>
         <div class="toggle-row">
@@ -105,24 +108,36 @@
             <div class="toggle-label">Accents obligatoires</div>
             <div class="toggle-desc">Désactivé : hablo = habló tous les deux acceptés</div>
           </div>
-          <label class="toggle">
-            <input type="checkbox" id="toggle-accent" />
-            <span class="toggle-slider"></span>
-          </label>
+          <label class="toggle"><input type="checkbox" id="toggle-accent" /><span class="toggle-slider"></span></label>
         </div>
       </div>
+
       <div class="settings-section">
-        <div class="settings-section-title">IA — Explications (OpenRouter)</div>
-        <label class="input-label" for="openrouter-key">Clé API OpenRouter</label>
+        <div class="settings-section-title">IA — OpenRouter</div>
+        <label class="input-label" for="openrouter-key">Clé API</label>
         <input type="password" id="openrouter-key" class="text-input" placeholder="sk-or-v1-…" autocomplete="off" />
-        <div class="input-hint">Optionnel · Explication grammaticale quand tu rates une carte</div>
+        <div class="input-hint">Utilisée pour l'exercice de traduction et les conjugaisons</div>
       </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Sync — Supabase</div>
+        <div class="input-hint" style="margin-bottom:0.75rem">Permet de synchroniser ta progression entre appareils</div>
+        <label class="input-label">URL du projet</label>
+        <input type="text" id="supabase-url" class="text-input" placeholder="https://xxx.supabase.co" autocomplete="off" style="margin-bottom:0.6rem" />
+        <label class="input-label">Clé anon</label>
+        <input type="password" id="supabase-key" class="text-input" placeholder="eyJ…" autocomplete="off" style="margin-bottom:0.6rem" />
+        <label class="input-label">Identifiant utilisateur</label>
+        <input type="text" id="supabase-user" class="text-input" placeholder="mon-pseudo" autocomplete="off" />
+        <div class="input-hint" style="margin-top:0.5rem">N'importe quel identifiant unique (pseudo, email…) — pas de compte requis</div>
+      </div>
+
       <div class="settings-section">
         <div class="settings-section-title">Données</div>
         <button class="btn" style="color:var(--wrong);border-color:rgba(192,90,74,0.3)" onclick="resetData()">
           Réinitialiser toute la progression
         </button>
       </div>
+
     </div>
   </div>
 
@@ -153,10 +168,47 @@
     <div class="scroll-area" id="guide-content"></div>
   </div>
 
+  <!-- TRANSLATION -->
+  <div id="screen-translation" class="screen">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+      <button class="btn btn-sm btn-ghost" onclick="renderHome()">← Retour</button>
+      <h2 class="screen-title" style="margin:0">Traduction</h2>
+    </div>
+
+    <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;flex-wrap:wrap">
+      <button class="btn btn-sm" id="btn-trans-dir">ES → FR</button>
+      <button class="btn btn-sm" id="btn-trans-level">B1-B2</button>
+    </div>
+
+    <div class="card" style="min-height:120px;align-items:flex-start;text-align:left;padding:1.25rem 1.5rem">
+      <div style="font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:0.6rem" id="trans-source-label">Espagnol → Français</div>
+      <div style="font-family:var(--font-display);font-style:italic;font-size:1.05rem;line-height:1.7;color:var(--text)" id="trans-source-text">
+        Clique sur "Générer un texte" pour commencer.
+      </div>
+      <div id="trans-loading" style="display:none;font-size:0.85rem;color:var(--text3);margin-top:0.5rem">Génération en cours…</div>
+    </div>
+
+    <div style="margin-bottom:1rem">
+      <div style="font-size:0.8rem;color:var(--text3);margin-bottom:0.5rem">Ta traduction</div>
+      <textarea id="trans-user-input" class="text-input"
+        placeholder="Écris ta traduction ici…"
+        rows="5"
+        style="resize:vertical;font-family:var(--font-body);font-size:0.95rem;line-height:1.6"></textarea>
+    </div>
+
+    <div id="trans-correction" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem"></div>
+
+    <div style="display:flex;flex-direction:column;gap:0.6rem">
+      <button class="btn btn-primary btn-full" id="btn-trans-generate">Générer un texte</button>
+      <button class="btn btn-full" id="btn-trans-check" style="display:none">Voir la correction</button>
+    </div>
+  </div>
+
 </div><!-- /#app -->
 
 <script src="js/data.js"></script>
 <script src="js/sm2.js"></script>
+<script src="js/supabase.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/app.js"></script>
 <script>

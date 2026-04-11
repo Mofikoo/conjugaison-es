@@ -553,3 +553,31 @@ body {
   line-height: 1.6;
 }
 .guide-tip strong { color: var(--text); }
+
+/* ─── TRANSLATION SCREEN ─────────────────────────────────────────────────── */
+.trans-correction-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--correct);
+  margin-bottom: 0.6rem;
+}
+.trans-correction-text {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+textarea.text-input {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.75rem 1rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+textarea.text-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(212,168,83,0.1); }
+textarea.text-input::placeholder { color: var(--text3); }
