@@ -50,14 +50,6 @@ function startSession() {
 }
 
 function renderNextCard() {
-  // Réinjecter les cartes échec dont les 5 min sont écoulées
-  const t = now();
-  const ready = failQueue.filter(c => state[c.id].nextReview <= t);
-  if (ready.length > 0) {
-    failQueue = failQueue.filter(c => state[c.id].nextReview > t);
-    queue.push(...ready.sort(() => Math.random() - 0.5));
-  }
-
   if (queue.length === 0) {
     if (failQueue.length > 0) {
       const nextMs = Math.min(...failQueue.map(c => state[c.id].nextReview)) - now();
@@ -166,15 +158,27 @@ function rate(q) {
   const updated = sm2Update(state[current.id], q);
   state[current.id] = { ...state[current.id], ...updated };
   saveState(state);
-  supabasePush(state, settings); // sync cross-platform en arrière-plan
+  supabasePush(state, settings);
 
   setText('next-review-hint', 'Prochaine révision : ' + formatNextReview(updated.nextReview));
   document.querySelectorAll('.rating-btn').forEach(b => b.disabled = true);
 
   const card = queue.shift();
-  if (q === 1) failQueue.push(card); // Échec → file d'attente 5 min
+  if (q === 1) {
+    failQueue.push(card); // Échec → file d'attente 5 min
+  }
 
-  setTimeout(() => renderNextCard(), 800);
+  setTimeout(() => {
+    // Réinjecter les cartes échec prêtes AVANT d'afficher la suivante
+    const t = now();
+    const ready = failQueue.filter(c => state[c.id].nextReview <= t);
+    if (ready.length > 0) {
+      failQueue = failQueue.filter(c => state[c.id].nextReview > t);
+      // Insérer après la carte courante (position 1), pas à la fin
+      queue.splice(1, 0, ...ready.sort(() => Math.random() - 0.5));
+    }
+    renderNextCard();
+  }, 800);
 }
 
 // ─── DONE ─────────────────────────────────────────────────────────────────────
