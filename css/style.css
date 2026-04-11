@@ -581,3 +581,25 @@ textarea.text-input {
 }
 textarea.text-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(212,168,83,0.1); }
 textarea.text-input::placeholder { color: var(--text3); }
+
+/* ─── SPECIAL KEYS KEYBOARD ──────────────────────────────────────────────── */
+.special-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0.6rem;
+}
+.special-key {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  padding: 0.3rem 0.55rem;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  line-height: 1;
+}
+.special-key:hover { background: var(--bg3); border-color: var(--accent); color: var(--accent); }
+.special-key:active { transform: scale(0.94); }

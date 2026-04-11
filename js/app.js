@@ -89,6 +89,9 @@ function renderNextCard() {
   inp.disabled = false;
   inp.focus();
 
+  // Clavier caractères spéciaux
+  document.getElementById('special-keys-study').innerHTML = buildSpecialKeyboard('answer-input');
+
   hide('feedback');
   show('btn-check');
   setText('next-review-hint', '');
@@ -292,6 +295,7 @@ function resetTranslationUI() {
   document.getElementById('trans-correction').style.display = 'none';
   document.getElementById('trans-correction').innerHTML = '';
   document.getElementById('trans-loading').style.display = 'none';
+  document.getElementById('special-keys-trans').innerHTML = buildSpecialKeyboard('trans-user-input');
   show('btn-trans-generate');
   hide('btn-trans-check');
 }
@@ -400,6 +404,27 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHome();
 });
 
+// ─── CLAVIER CARACTÈRES SPÉCIAUX ─────────────────────────────────────────────
+const SPECIAL_CHARS = ['á','é','í','ó','ú','ü','ñ','¿','¡','Á','É','Í','Ó','Ú','Ñ'];
+
+function buildSpecialKeyboard(targetId) {
+  return `<div class="special-keys">${
+    SPECIAL_CHARS.map(c =>
+      `<button class="special-key" onclick="insertChar('${c}','${targetId}')" type="button">${c}</button>`
+    ).join('')
+  }</div>`;
+}
+
+function insertChar(char, targetId) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  const start = el.selectionStart ?? el.value.length;
+  const end   = el.selectionEnd   ?? el.value.length;
+  el.value = el.value.slice(0, start) + char + el.value.slice(end);
+  el.selectionStart = el.selectionEnd = start + char.length;
+  el.focus();
+}
+
 // ─── GUIDE ────────────────────────────────────────────────────────────────────
 const TERMINAISONS = {
   presente: {
@@ -416,6 +441,17 @@ const TERMINAISONS = {
     ar: ['aba','abas','aba','ábamos','abais','aban'],
     er: ['ía','ías','ía','íamos','íais','ían'],
     ir: ['ía','ías','ía','íamos','íais','ían'],
+  },
+  // Temps composés : auxiliaire haber + participe passé
+  perfecto: {
+    label: 'haber (présent) + participio',
+    aux: ['he','has','ha','hemos','habéis','han'],
+    note: 'Participe : -AR → -ado  ·  -ER/-IR → -ido  ·  Irréguliers : hecho, dicho, puesto, vuelto, visto…',
+  },
+  pluscuamperfecto: {
+    label: 'haber (imparfait) + participio',
+    aux: ['había','habías','había','habíamos','habíais','habían'],
+    note: 'Participe : -AR → -ado  ·  -ER/-IR → -ido  ·  Irréguliers : hecho, dicho, puesto, vuelto, visto…',
   },
   futuro: {
     ar: ['aré','arás','ará','aremos','aréis','arán'],
@@ -437,17 +473,83 @@ const TERMINAISONS = {
     er: ['iera','ieras','iera','iéramos','ierais','ieran'],
     ir: ['iera','ieras','iera','iéramos','ierais','ieran'],
   },
+  // Impératif : formes par personne (pas de yo)
+  imperativo: {
+    label: 'Impératif affirmatif',
+    rows: [
+      {p:'tú',     ar:'habla',    er:'come',    ir:'vive'},
+      {p:'él/ella',ar:'hable',    er:'coma',    ir:'viva'},
+      {p:'nosotros',ar:'hablemos',er:'comamos', ir:'vivamos'},
+      {p:'vosotros',ar:'hablad',  er:'comed',   ir:'vivid'},
+      {p:'ellos',  ar:'hablen',   er:'coman',   ir:'vivan'},
+    ],
+    note: 'Irréguliers tú : haz, di, pon, sal, ten, ven, ve, sé',
+  },
+  imperativo_neg: {
+    label: 'Impératif négatif = no + subjonctif présent',
+    rows: [
+      {p:'tú',     ar:'no hables',   er:'no comas',   ir:'no vivas'},
+      {p:'él/ella',ar:'no hable',    er:'no coma',    ir:'no viva'},
+      {p:'nosotros',ar:'no hablemos',er:'no comamos', ir:'no vivamos'},
+      {p:'vosotros',ar:'no habléis', er:'no comáis',  ir:'no viváis'},
+      {p:'ellos',  ar:'no hablen',   er:'no coman',   ir:'no vivan'},
+    ],
+    note: 'Identique au subjonctif présent précédé de no',
+  },
 };
 
 function buildTerminaisonsTable(tenseKey) {
   const data = TERMINAISONS[tenseKey];
   if (!data) return '';
   const pronouns = ['yo','tú','él/ella','nosotros','vosotros','ellos'];
+
+  // Temps composés (haber + participe)
+  if (data.aux) {
+    const rows = pronouns.map((p, i) => `
+      <tr>
+        <td style="color:var(--text3);font-size:0.8rem;padding:3px 10px 3px 0">${p}</td>
+        <td style="font-family:var(--font-display);font-style:italic;font-size:0.88rem;color:var(--accent)">${data.aux[i]}</td>
+        <td style="font-size:0.8rem;color:var(--text2);padding-left:6px">+ participio</td>
+      </tr>`).join('');
+    return `
+      <div style="margin-bottom:0.85rem">
+        <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:.07em">${data.label}</div>
+        <table style="border-collapse:collapse;width:100%"><tbody>${rows}</tbody></table>
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:0.5rem;font-style:italic">${data.note}</div>
+      </div>`;
+  }
+
+  // Impératif (rows spécifiques, pas de yo)
+  if (data.rows) {
+    const rows = data.rows.map(r => `
+      <tr>
+        <td style="color:var(--text3);font-size:0.8rem;padding:3px 10px 3px 0">${r.p}</td>
+        <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--accent);padding-right:8px">${r.ar}</td>
+        <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2);padding-right:8px">${r.er}</td>
+        <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2)">${r.ir}</td>
+      </tr>`).join('');
+    return `
+      <div style="margin-bottom:0.85rem">
+        <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:.07em">${data.label}</div>
+        <table style="border-collapse:collapse;width:100%">
+          <thead><tr>
+            <th style="font-size:0.72rem;color:var(--text3);font-weight:400;text-align:left;padding-bottom:4px"></th>
+            <th style="font-size:0.72rem;color:var(--accent);font-weight:500;text-align:left;padding-bottom:4px;padding-right:8px">-AR</th>
+            <th style="font-size:0.72rem;color:var(--text2);font-weight:400;text-align:left;padding-bottom:4px;padding-right:8px">-ER</th>
+            <th style="font-size:0.72rem;color:var(--text2);font-weight:400;text-align:left;padding-bottom:4px">-IR</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:0.5rem;font-style:italic">${data.note}</div>
+      </div>`;
+  }
+
+  // Terminaisons régulières classiques
   const rows = pronouns.map((p, i) => `
     <tr>
       <td style="color:var(--text3);font-size:0.8rem;padding:4px 10px 4px 0">${p}</td>
-      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--accent)">-${data.ar[i]}</td>
-      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2)">-${data.er[i]}</td>
+      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--accent);padding-right:8px">-${data.ar[i]}</td>
+      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2);padding-right:8px">-${data.er[i]}</td>
       <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2)">-${data.ir[i]}</td>
     </tr>`).join('');
   return `
@@ -500,7 +602,7 @@ const GUIDE_DATA = [
     ],
   },
   {
-    tenseKey: null,
+    tenseKey: 'perfecto',
     es: 'Pretérito perfecto compuesto', fr: 'Passé composé',
     triggers: ['hoy','esta semana','alguna vez','ya','todavía no'],
     usage: 'Actions passées liées au présent. Dominant en Espagne, moins utilisé en Amérique latine.',
@@ -511,7 +613,7 @@ const GUIDE_DATA = [
     ],
   },
   {
-    tenseKey: null,
+    tenseKey: 'pluscuamperfecto',
     es: 'Pretérito pluscuamperfecto', fr: 'Plus-que-parfait',
     triggers: ['ya','cuando llegué…','antes de que','nunca antes'],
     usage: 'Action passée antérieure à une autre action passée. Formé avec había/habías… + participe.',
@@ -565,7 +667,7 @@ const GUIDE_DATA = [
     ],
   },
   {
-    tenseKey: null,
+    tenseKey: 'imperativo',
     es: 'Imperativo', fr: 'Impératif affirmatif',
     triggers: ['¡ven!','¡habla!','ordre direct','instruction'],
     usage: 'Ordres et instructions. Pas de forme yo. Irréguliers tú : haz, di, pon, sal, ten, ven, ve, sé.',
@@ -576,7 +678,7 @@ const GUIDE_DATA = [
     ],
   },
   {
-    tenseKey: null,
+    tenseKey: 'imperativo_neg',
     es: 'Imperativo negativo', fr: 'Impératif négatif',
     triggers: ['¡no hagas!','interdiction','no + subjonctif'],
     usage: 'Interdictions. Se forme avec "no" + subjonctif présent. Ex : habla (aff.) → no hables (nég.).',
