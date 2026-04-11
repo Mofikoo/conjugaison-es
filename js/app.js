@@ -56,38 +56,26 @@ async function renderHome() {
 
 // ─── STUDY SESSION ────────────────────────────────────────────────────────────
 function startSession() {
-  // Ne pas réinitialiser — conserver l'état courant avec les nextReview corrects
   queue     = getDueCards(state, settings).sort(() => Math.random() - 0.5);
   failQueue = [];
   if (queue.length === 0) { renderHome(); return; }
   sessionCorrect = 0;
   sessionTotal   = queue.length;
   showScreen('study');
-  // Vérifier la failQueue toutes les 30s pendant la session
-  if (window._failTimer) clearInterval(window._failTimer);
-  window._failTimer = setInterval(() => {
-    if (failQueue.length === 0) return;
-    const tNow = now();
-    const ready = failQueue.filter(c => state[c.id].nextReview <= tNow);
-    if (ready.length > 0 && queue.length === 0) {
-      // Queue vide et cartes prêtes → relancer
-      failQueue = failQueue.filter(c => state[c.id].nextReview > tNow);
-      queue.push(...ready);
-      renderNextCard();
-    }
-  }, 30000);
   renderNextCard();
 }
 
 function renderNextCard() {
   if (queue.length === 0) {
     if (failQueue.length > 0) {
-      const nextMs = Math.min(...failQueue.map(c => state[c.id].nextReview)) - now();
-      const mins   = Math.ceil(nextMs / 60000);
-      setText('done-score', failQueue.length + '');
-      setText('done-correct', `carte${failQueue.length > 1 ? 's' : ''} en attente — repassent dans ~${mins} min`);
-      document.getElementById('btn-done-home').textContent = 'Retour à l\'accueil';
-      showScreen('done');
+      // Cartes en attente — afficher un message d'attente
+      setText('card-tense', 'EN ATTENTE');
+      setText('card-main', '⏱');
+      setText('card-pronoun', `${failQueue.length} carte${failQueue.length > 1 ? 's' : ''} reviennent dans ~5 min`);
+      setText('card-meaning', '');
+      hide('btn-check');
+      hide('feedback');
+      document.getElementById('special-keys-study').innerHTML = '';
     } else {
       renderDone();
     }
@@ -205,19 +193,20 @@ function rate(q) {
 
   const card = queue.shift();
   if (q === 1) {
-    failQueue.push(card); // Échec → file d'attente 5 min
+    failQueue.push(card);
+    // Réinjecter après 5 min réelles (en mémoire, indépendant de nextReview)
+    setTimeout(() => {
+      const idx = failQueue.indexOf(card);
+      if (idx !== -1) {
+        failQueue.splice(idx, 1);
+        queue.push(card);
+        // Si la queue était vide, relancer l'affichage
+        if (queue.length === 1) renderNextCard();
+      }
+    }, 5 * 60 * 1000);
   }
 
-  setTimeout(() => {
-    // Recalculer now() ici — pas au moment du rate()
-    const tNow = now();
-    const ready = failQueue.filter(c => state[c.id].nextReview <= tNow);
-    if (ready.length > 0) {
-      failQueue = failQueue.filter(c => state[c.id].nextReview > tNow);
-      queue.splice(1, 0, ...ready.sort(() => Math.random() - 0.5));
-    }
-    renderNextCard();
-  }, 800);
+  setTimeout(() => renderNextCard(), 800);
 }
 
 // ─── DONE ─────────────────────────────────────────────────────────────────────
@@ -287,8 +276,8 @@ function renderCardList() {
       if (!s) return false;
       if (manageFilter === 'due')      return s.nextReview <= t;
       if (manageFilter === 'mastered') return s.repetitions >= 4 && s.interval >= 21;
-      if (manageFilter === 'learning') return s.repetitions > 0 && !(s.repetitions >= 4 && s.interval >= 21);
-      if (manageFilter === 'new')      return s.repetitions === 0;
+      if (manageFilter === 'learning') return (s.repetitions > 0 || s.failed) && !(s.repetitions >= 4 && s.interval >= 21);
+      if (manageFilter === 'new')      return s.repetitions === 0 && !s.failed;
       return true;
     });
   }
