@@ -8,38 +8,76 @@ const MIN_MS = 60000;
 
 function now() { return Date.now(); }
 
-// q : 1=échec, 2=difficile, 4=bon, 5=facile
-function sm2Update(card, q) {
-  let { interval, easeFactor, repetitions } = card;
-  if (q === 1) {
+// ─── SM-2 ALGORITHM ──────────────────────────────────────────────────────────
+// SM-2 avec 3 améliorations tirées de morji (Tcl, inspiré de Mnemosyne/Anki) :
+// 1. Formules correctes go-srs (EF Wozniak original)
+// 2. Interval noise → évite les clusters de révisions
+// 3. Late review penalty → révision tardive + difficile = même intervalle
+
+const EF_DEFAULT   = 2.5;
+const EF_MIN       = 1.3;
+const EF_CONST     = -0.8;
+const EF_LINEAR    = 0.28;
+const EF_QUADRATIC = 0.02;
+const DUE_START    = 6;
+
+const Q_MAP = { 1: 0, 2: 2, 4: 4, 5: 5 };
+
+function calcEasiness(oldEF, q) {
+  const v = oldEF + EF_CONST + (EF_LINEAR * q) + (EF_QUADRATIC * q * q);
+  return Math.max(EF_MIN, Math.round(v * 1000) / 1000);
+}
+
+// Bruit aléatoire (morji/mnemosyne) — évite que toutes les cartes
+// apprises le même jour reviennent en pile le même jour
+function intervalNoise(days) {
+  if (days <= 10)  return Math.round(Math.random() * 2 - 1);
+  if (days <= 20)  return Math.round(Math.random() * 5 - 2);
+  if (days <= 60)  return Math.round(Math.random() * 7 - 3);
+  return Math.round(days * (-0.05 + 0.1 * Math.random()));
+}
+
+function sm2Update(card, btnQ) {
+  const q = Q_MAP[btnQ] ?? 0;
+  const { easeFactor, repetitions, interval, lastReviewed } = card;
+  const newEF = calcEasiness(easeFactor, q);
+
+  if (btnQ === 1) {
     return {
-      interval: 1,
-      easeFactor: Math.max(1.3, easeFactor - 0.2),
-      repetitions: 0,
-      nextReview: now() + 5 * MIN_MS,
-      lastReviewed: now(),
-      failed: true,
+      interval: 1, easeFactor: newEF, repetitions: 0,
+      nextReview: now() + DAY_MS, lastReviewed: now(), failed: true,
     };
   }
-  if (q === 2) {
-    repetitions = Math.max(0, repetitions - 1);
-    interval = 1;
-    easeFactor = Math.max(1.3, easeFactor - 0.15);
-  } else {
-    if (repetitions === 0) interval = 1;
-    else if (repetitions === 1) interval = 6;
-    else interval = Math.round(interval * easeFactor);
-    repetitions++;
-    if (q === 5) easeFactor = Math.min(3.0, easeFactor + 0.1);
-    else easeFactor = Math.max(1.3, easeFactor + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+
+  let newInterval;
+  if (repetitions === 0)      newInterval = 1;
+  else if (repetitions === 1) newInterval = DUE_START;
+  else {
+    // Late review penalty (morji) :
+    // Si on révise en retard et qu'on trouve difficile,
+    // on conserve l'intervalle réel plutôt que de le rallonger
+    const actualDays = lastReviewed
+      ? Math.round((now() - lastReviewed) / DAY_MS)
+      : interval;
+    const isLate = actualDays > interval * 1.1;
+
+    if (btnQ === 2 && isLate) {
+      newInterval = actualDays; // même intervalle, pas de régression
+    } else {
+      newInterval = Math.round(DUE_START * Math.pow(easeFactor, repetitions - 1));
+      if (btnQ === 2) newInterval = Math.max(1, Math.round(newInterval * 0.8));
+      if (btnQ === 5) newInterval = Math.round(newInterval * 1.2);
+    }
   }
+
+  // Noise final
+  newInterval = Math.max(1, newInterval + intervalNoise(newInterval));
+
   return {
-    interval,
-    easeFactor: Math.round(easeFactor * 1000) / 1000,
-    repetitions,
-    nextReview: now() + interval * DAY_MS,
-    lastReviewed: now(),
-    failed: false,
+    interval: newInterval, easeFactor: newEF,
+    repetitions: repetitions + 1,
+    nextReview: now() + newInterval * DAY_MS,
+    lastReviewed: now(), failed: false,
   };
 }
 
