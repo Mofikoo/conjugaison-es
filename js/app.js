@@ -39,13 +39,26 @@ async function renderHome() {
 
 // ─── STUDY SESSION ────────────────────────────────────────────────────────────
 function startSession() {
-  state = getOrInitState(settings);
+  // Ne pas réinitialiser — conserver l'état courant avec les nextReview corrects
   queue     = getDueCards(state, settings).sort(() => Math.random() - 0.5);
   failQueue = [];
   if (queue.length === 0) { renderHome(); return; }
   sessionCorrect = 0;
   sessionTotal   = queue.length;
   showScreen('study');
+  // Vérifier la failQueue toutes les 30s pendant la session
+  if (window._failTimer) clearInterval(window._failTimer);
+  window._failTimer = setInterval(() => {
+    if (failQueue.length === 0) return;
+    const tNow = now();
+    const ready = failQueue.filter(c => state[c.id].nextReview <= tNow);
+    if (ready.length > 0 && queue.length === 0) {
+      // Queue vide et cartes prêtes → relancer
+      failQueue = failQueue.filter(c => state[c.id].nextReview > tNow);
+      queue.push(...ready);
+      renderNextCard();
+    }
+  }, 30000);
   renderNextCard();
 }
 
@@ -169,12 +182,11 @@ function rate(q) {
   }
 
   setTimeout(() => {
-    // Réinjecter les cartes échec prêtes AVANT d'afficher la suivante
-    const t = now();
-    const ready = failQueue.filter(c => state[c.id].nextReview <= t);
+    // Recalculer now() ici — pas au moment du rate()
+    const tNow = now();
+    const ready = failQueue.filter(c => state[c.id].nextReview <= tNow);
     if (ready.length > 0) {
-      failQueue = failQueue.filter(c => state[c.id].nextReview > t);
-      // Insérer après la carte courante (position 1), pas à la fin
+      failQueue = failQueue.filter(c => state[c.id].nextReview > tNow);
       queue.splice(1, 0, ...ready.sort(() => Math.random() - 0.5));
     }
     renderNextCard();

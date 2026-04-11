@@ -131,9 +131,11 @@ function getStats(state, settings) {
   active.forEach(c => {
     const s = state[c.id];
     if (!s) return;
-    if (s.repetitions === 0 && !s.failed) newCount++;
-    else if (s.repetitions >= 4 && s.interval >= 21) mastered++;
-    else learning++;
+    const isNew      = s.repetitions === 0 && !s.failed && !s.lastReviewed;
+    const isMastered = s.repetitions >= 4 && s.interval >= 21;
+    if (isNew)           newCount++;
+    else if (isMastered) mastered++;
+    else                 learning++;
     if (s.nextReview <= t) due++;
   });
   return { total: active.length, due, mastered, learning, newCount };
