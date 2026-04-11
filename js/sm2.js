@@ -1,19 +1,17 @@
 // ─── SM-2 SPACED REPETITION ──────────────────────────────────────────────────
 
-const STORAGE_KEY = 'conjugaison_sm2_v1';
-const SETTINGS_KEY = 'conjugaison_settings_v1';
+const STORAGE_KEY   = 'conjugaison_sm2_v1';
+const SETTINGS_KEY  = 'conjugaison_settings_v1';
+const CARDSTATS_KEY = 'conjugaison_cardstats_v1';
 const DAY_MS = 86400000;
 const MIN_MS = 60000;
 
 function now() { return Date.now(); }
 
-// SM-2 étendu — q : 1=échec, 2=difficile, 4=bon, 5=facile
-// Échec → repasse dans 5 minutes (intra-session)
+// q : 1=échec, 2=difficile, 4=bon, 5=facile
 function sm2Update(card, q) {
   let { interval, easeFactor, repetitions } = card;
-
   if (q === 1) {
-    // Échec : reset + repasse dans 5 min
     return {
       interval: 1,
       easeFactor: Math.max(1.3, easeFactor - 0.2),
@@ -23,14 +21,11 @@ function sm2Update(card, q) {
       failed: true,
     };
   }
-
   if (q === 2) {
-    // Difficile : on ne progresse pas, repasse demain
     repetitions = Math.max(0, repetitions - 1);
     interval = 1;
     easeFactor = Math.max(1.3, easeFactor - 0.15);
   } else {
-    // Bon (4) ou Facile (5)
     if (repetitions === 0) interval = 1;
     else if (repetitions === 1) interval = 6;
     else interval = Math.round(interval * easeFactor);
@@ -38,7 +33,6 @@ function sm2Update(card, q) {
     if (q === 5) easeFactor = Math.min(3.0, easeFactor + 0.1);
     else easeFactor = Math.max(1.3, easeFactor + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
   }
-
   return {
     interval,
     easeFactor: Math.round(easeFactor * 1000) / 1000,
@@ -49,13 +43,32 @@ function sm2Update(card, q) {
   };
 }
 
+// ─── CARD STATS ───────────────────────────────────────────────────────────────
+
+function loadCardStats() {
+  try { return JSON.parse(localStorage.getItem(CARDSTATS_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveCardStats(cs) {
+  try { localStorage.setItem(CARDSTATS_KEY, JSON.stringify(cs)); } catch {}
+}
+
+function recordCardResult(cardId, isCorrect, q, cardStats) {
+  const s = cardStats[cardId] || { correct:0, wrong:0, btn_fail:0, btn_hard:0, btn_good:0, btn_easy:0, last_seen:null };
+  if (isCorrect) s.correct++; else s.wrong++;
+  if (q === 1) s.btn_fail++;
+  else if (q === 2) s.btn_hard++;
+  else if (q === 4) s.btn_good++;
+  else if (q === 5) s.btn_easy++;
+  s.last_seen = now();
+  cardStats[cardId] = s;
+  return cardStats;
+}
+
 // ─── STATE ───────────────────────────────────────────────────────────────────
 
 function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
 }
 
 function saveState(state) {
@@ -76,29 +89,22 @@ function saveSettings(settings) {
 function getDefaultSettings() {
   return {
     tenses: {
-      presente:              true,
-      indefinido:            false,
-      imperfecto:            false,
-      perfecto:              false,
-      pluscuamperfecto:      false,
-      futuro:                false,
-      condicional:           false,
-      subjuntivo_presente:   false,
-      subjuntivo_imperfecto: false,
-      imperativo:            false,
-      imperativo_neg:        false,
+      presente: true, indefinido: false, imperfecto: false,
+      perfecto: false, pluscuamperfecto: false, futuro: false,
+      condicional: false, subjuntivo_presente: false,
+      subjuntivo_imperfecto: false, imperativo: false, imperativo_neg: false,
     },
     verbs: 'all',
-    accentStrict:  false,
+    accentStrict: false,
     openrouterKey: '',
-    supabaseUrl:   '',
-    supabaseKey:   '',
-    userId:        '',
+    supabaseUrl: '',
+    supabaseKey: '',
+    userId: '',
   };
 }
 
 function initCardState() {
-  return { interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: now(), lastReviewed: null, failed: false };
+  return { interval:1, easeFactor:2.5, repetitions:0, nextReview:now(), lastReviewed:null };
 }
 
 function getOrInitState(settings) {
@@ -133,9 +139,9 @@ function getStats(state, settings) {
     if (!s) return;
     const isNew      = s.repetitions === 0 && !s.failed && !s.lastReviewed;
     const isMastered = s.repetitions >= 4 && s.interval >= 21;
-    if (isNew)           newCount++;
+    if (isNew) newCount++;
     else if (isMastered) mastered++;
-    else                 learning++;
+    else learning++;
     if (s.nextReview <= t) due++;
   });
   return { total: active.length, due, mastered, learning, newCount };
@@ -145,6 +151,7 @@ function formatNextReview(nextReview) {
   const diff = nextReview - now();
   if (diff <= 0) return 'maintenant';
   const mins = Math.round(diff / MIN_MS);
+  if (mins < 2) return 'dans 1 min';
   if (mins < 60) return `dans ${mins} min`;
   const hours = Math.round(diff / 3600000);
   if (hours < 24) return `dans ${hours}h`;
@@ -155,8 +162,6 @@ function formatNextReview(nextReview) {
 
 function normalizeAnswer(s, strict = false) {
   let out = s.trim().toLowerCase();
-  if (!strict) {
-    out = out.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  }
+  if (!strict) out = out.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return out;
 }

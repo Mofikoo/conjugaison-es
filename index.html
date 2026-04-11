@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Conjugar — Espagnol</title>
   <meta name="theme-color" content="#0f0f0e" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -22,6 +21,7 @@
     <div class="topbar-nav">
       <button class="btn btn-sm btn-ghost" id="btn-guide">Guide</button>
       <button class="btn btn-sm btn-ghost" id="btn-translation">Traduire</button>
+      <button class="btn btn-sm btn-ghost" id="btn-stats">Stats</button>
       <button class="btn btn-sm btn-ghost" id="btn-manage">Cartes</button>
       <button class="btn btn-sm btn-ghost" id="btn-settings">Réglages</button>
     </div>
@@ -204,6 +204,15 @@
       <button class="btn btn-primary btn-full" id="btn-trans-generate">Générer un texte</button>
       <button class="btn btn-full" id="btn-trans-check" style="display:none">Voir la correction</button>
     </div>
+  </div>
+
+  <!-- STATS -->
+  <div id="screen-stats" class="screen">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+      <button class="btn btn-sm btn-ghost" onclick="renderHome()">← Retour</button>
+      <h2 class="screen-title" style="margin:0">Statistiques</h2>
+    </div>
+    <div class="scroll-area" id="stats-content"></div>
   </div>
 
 </div><!-- /#app -->

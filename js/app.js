@@ -1,9 +1,10 @@
 // ─── APP STATE ───────────────────────────────────────────────────────────────
-let settings  = loadSettings();
-let state     = getOrInitState(settings);
-let queue     = [];
-let failQueue = [];
-let current   = null;
+let settings   = loadSettings();
+let state      = getOrInitState(settings);
+let cardStats  = loadCardStats();
+let queue      = [];
+let failQueue  = [];
+let current    = null;
 let sessionCorrect = 0;
 let sessionTotal   = 0;
 
@@ -16,12 +17,28 @@ function showScreen(id) {
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
 async function renderHome() {
-  // Pull Supabase si configuré
   const remote = await supabasePull(settings);
   if (remote) {
-    // Merge : remote gagne sur local pour les cartes connues
     Object.entries(remote).forEach(([id, s]) => { state[id] = s; });
     saveState(state);
+  }
+  const remoteStats = await supabaseStatsPull(settings);
+  if (remoteStats) {
+    // Merge : additionner les compteurs (max entre local et remote)
+    Object.entries(remoteStats).forEach(([id, s]) => {
+      const local = cardStats[id];
+      if (!local) { cardStats[id] = s; return; }
+      cardStats[id] = {
+        correct:  Math.max(local.correct  || 0, s.correct  || 0),
+        wrong:    Math.max(local.wrong    || 0, s.wrong    || 0),
+        btn_fail: Math.max(local.btn_fail || 0, s.btn_fail || 0),
+        btn_hard: Math.max(local.btn_hard || 0, s.btn_hard || 0),
+        btn_good: Math.max(local.btn_good || 0, s.btn_good || 0),
+        btn_easy: Math.max(local.btn_easy || 0, s.btn_easy || 0),
+        last_seen: Math.max(local.last_seen || 0, s.last_seen || 0),
+      };
+    });
+    saveCardStats(cardStats);
   }
   state = getOrInitState(settings);
   const stats = getStats(state, settings);
@@ -168,10 +185,20 @@ function checkAnswer() {
 
 function rate(q) {
   if (!current) return;
+  const inp = document.getElementById('answer-input');
+  const isCorrect = inp.className.includes('correct');
+
   const updated = sm2Update(state[current.id], q);
   state[current.id] = { ...state[current.id], ...updated };
   saveState(state);
+
+  // Stats par carte
+  cardStats = recordCardResult(current.id, isCorrect, q, cardStats);
+  saveCardStats(cardStats);
+
+  // Sync Supabase
   supabasePush(state, settings);
+  supabaseStatsPush(cardStats, settings);
 
   setText('next-review-hint', 'Prochaine révision : ' + formatNextReview(updated.nextReview));
   document.querySelectorAll('.rating-btn').forEach(b => b.disabled = true);
@@ -386,6 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
   on('btn-manage',          renderManage);
   on('btn-guide',           renderGuide);
   on('btn-translation',     renderTranslation);
+  on('btn-stats',           renderStats);
   on('btn-done-home',       renderHome);
   on('btn-check',           checkAnswer);
   on('btn-trans-generate',  generateTranslation);
@@ -440,6 +468,108 @@ function insertChar(char, targetId) {
   el.value = el.value.slice(0, start) + char + el.value.slice(end);
   el.selectionStart = el.selectionEnd = start + char.length;
   el.focus();
+}
+
+// ─── STATS SCREEN ────────────────────────────────────────────────────────────
+let statsFilter = 'all';
+
+function renderStats() {
+  // Totaux globaux
+  let totalCorrect = 0, totalWrong = 0;
+  let totalFail = 0, totalHard = 0, totalGood = 0, totalEasy = 0;
+  let reviewed = 0;
+
+  Object.values(cardStats).forEach(s => {
+    totalCorrect += s.correct || 0;
+    totalWrong   += s.wrong   || 0;
+    totalFail    += s.btn_fail || 0;
+    totalHard    += s.btn_hard || 0;
+    totalGood    += s.btn_good || 0;
+    totalEasy    += s.btn_easy || 0;
+    if ((s.correct || 0) + (s.wrong || 0) > 0) reviewed++;
+  });
+
+  const totalAnswers = totalCorrect + totalWrong;
+  const pct = totalAnswers > 0 ? Math.round(totalCorrect / totalAnswers * 100) : 0;
+
+  // Top 10 cartes les plus ratées
+  const activeCards = getActiveCards(settings);
+  const hardest = activeCards
+    .filter(c => cardStats[c.id]?.wrong > 0)
+    .map(c => ({ card: c, s: cardStats[c.id] }))
+    .sort((a, b) => (b.s.wrong || 0) - (a.s.wrong || 0))
+    .slice(0, 10);
+
+  // Top 10 cartes les mieux maîtrisées
+  const easiest = activeCards
+    .filter(c => cardStats[c.id]?.correct > 0)
+    .map(c => ({ card: c, s: cardStats[c.id] }))
+    .sort((a, b) => {
+      const ra = (a.s.correct || 0) / Math.max(1, (a.s.correct || 0) + (a.s.wrong || 0));
+      const rb = (b.s.correct || 0) / Math.max(1, (b.s.correct || 0) + (b.s.wrong || 0));
+      return rb - ra;
+    })
+    .slice(0, 10);
+
+  const container = document.getElementById('stats-content');
+  container.innerHTML = `
+    <div class="stats-section-title">Vue globale</div>
+    <div class="stats-kpi-grid">
+      <div class="stats-kpi"><div class="stats-kpi-val accent">${pct}%</div><div class="stats-kpi-lbl">taux de réussite</div></div>
+      <div class="stats-kpi"><div class="stats-kpi-val">${totalAnswers.toLocaleString()}</div><div class="stats-kpi-lbl">réponses totales</div></div>
+      <div class="stats-kpi"><div class="stats-kpi-val" style="color:var(--correct)">${totalCorrect.toLocaleString()}</div><div class="stats-kpi-lbl">correctes</div></div>
+      <div class="stats-kpi"><div class="stats-kpi-val" style="color:var(--wrong)">${totalWrong.toLocaleString()}</div><div class="stats-kpi-lbl">incorrectes</div></div>
+    </div>
+
+    <div class="stats-section-title" style="margin-top:1.5rem">Boutons utilisés</div>
+    <div class="stats-btn-grid">
+      <div class="stats-btn-item r-fail"><div class="stats-btn-count">${totalFail}</div><div class="stats-btn-lbl">Échec</div></div>
+      <div class="stats-btn-item r-hard"><div class="stats-btn-count">${totalHard}</div><div class="stats-btn-lbl">Difficile</div></div>
+      <div class="stats-btn-item r-ok">  <div class="stats-btn-count">${totalGood}</div><div class="stats-btn-lbl">Bon</div></div>
+      <div class="stats-btn-item r-easy"><div class="stats-btn-count">${totalEasy}</div><div class="stats-btn-lbl">Facile</div></div>
+    </div>
+
+    <div class="stats-section-title" style="margin-top:1.5rem">Cartes les plus difficiles</div>
+    ${hardest.length === 0
+      ? '<div style="font-size:0.88rem;color:var(--text3);padding:0.5rem 0">Pas encore de données</div>'
+      : hardest.map(({card, s}) => {
+          const total = (s.correct || 0) + (s.wrong || 0);
+          const pctCard = Math.round((s.correct || 0) / total * 100);
+          return `<div class="stats-card-row">
+            <div class="stats-card-info">
+              <span class="cli-pronoun">${card.pronoun}</span>
+              <span class="cli-verb">${card.verb}</span>
+              <span class="cli-tense">(${card.tenseLabel})</span>
+            </div>
+            <div class="stats-card-right">
+              <span style="color:var(--wrong);font-size:0.85rem">${s.wrong} ✗</span>
+              <span style="color:var(--text3);font-size:0.78rem">${pctCard}% ok</span>
+            </div>
+          </div>`;
+        }).join('')
+    }
+
+    <div class="stats-section-title" style="margin-top:1.5rem">Cartes les mieux maîtrisées</div>
+    ${easiest.length === 0
+      ? '<div style="font-size:0.88rem;color:var(--text3);padding:0.5rem 0">Pas encore de données</div>'
+      : easiest.map(({card, s}) => {
+          const total = (s.correct || 0) + (s.wrong || 0);
+          const pctCard = Math.round((s.correct || 0) / total * 100);
+          return `<div class="stats-card-row">
+            <div class="stats-card-info">
+              <span class="cli-pronoun">${card.pronoun}</span>
+              <span class="cli-verb">${card.verb}</span>
+              <span class="cli-tense">(${card.tenseLabel})</span>
+            </div>
+            <div class="stats-card-right">
+              <span style="color:var(--correct);font-size:0.85rem">${s.correct} ✓</span>
+              <span style="color:var(--text3);font-size:0.78rem">${pctCard}% ok</span>
+            </div>
+          </div>`;
+        }).join('')
+    }
+  `;
+  showScreen('stats');
 }
 
 // ─── GUIDE ────────────────────────────────────────────────────────────────────
