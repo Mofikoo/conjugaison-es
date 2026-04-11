@@ -128,19 +128,20 @@ function checkAnswer() {
         <div class="fb-answer" style="color:var(--correct)">${current.answer}</div>
         <div style="margin-top:0.3rem;font-size:0.82rem;color:var(--text3)">Ta réponse : <span style="color:var(--wrong)">${typed || '—'}</span></div>
       </div>`;
-    // Conjugaison complète du verbe à ce temps
-    const conjugaison = getFullConjugation(current);
-    if (conjugaison) {
-      const rows = conjugaison.map(({pronoun, form}) =>
-        `<tr><td style="color:var(--text3);padding:3px 12px 3px 0;font-size:0.82rem">${pronoun}</td><td style="font-family:var(--font-display);font-style:italic;font-size:0.9rem;color:${form === current.answer ? 'var(--accent)' : 'var(--text)'}">${form}</td></tr>`
-      ).join('');
-      const box = document.createElement('div');
-      box.className = 'ai-box';
-      box.innerHTML = `
-        <div class="ai-box-header"><div class="ai-dot"></div>${current.verb} — ${current.tenseLabel}</div>
-        <table style="border-collapse:collapse;width:100%">${rows}</table>`;
-      fb.appendChild(box);
-    }
+  }
+
+  // Conjugaison complète — toujours affichée
+  const conjugaison = getFullConjugation(current);
+  if (conjugaison) {
+    const rows = conjugaison.map(({pronoun, form}) =>
+      `<tr><td style="color:var(--text3);padding:3px 12px 3px 0;font-size:0.82rem">${pronoun}</td><td style="font-family:var(--font-display);font-style:italic;font-size:0.9rem;color:${form === current.answer ? 'var(--accent)' : 'var(--text)'}">${form}</td></tr>`
+    ).join('');
+    const box = document.createElement('div');
+    box.className = 'ai-box';
+    box.innerHTML = `
+      <div class="ai-box-header"><div class="ai-dot"></div>${current.verb} — ${current.tenseLabel}</div>
+      <table style="border-collapse:collapse;width:100%">${rows}</table>`;
+    fb.appendChild(box);
   }
 
   // 4 boutons de notation
