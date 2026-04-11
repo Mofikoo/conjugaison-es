@@ -50,7 +50,7 @@ async function supabasePush(state, settings) {
     console.warn('Supabase non configuré — push ignoré');
     return;
   }
-
+}
 async function supabasePull(settings) {
   const { supabaseUrl, supabaseKey, userId } = settings;
   if (!supabaseUrl || !supabaseKey || !userId) return null;
