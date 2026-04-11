@@ -43,6 +43,14 @@ async function supabasePush(state, settings) {
   } catch (e) { console.warn('Supabase push failed', e); }
 }
 
+async function supabasePush(state, settings) {
+  const { supabaseUrl, supabaseKey, userId } = settings;
+  console.log('push →', { supabaseUrl, supabaseKey: supabaseKey?.slice(0,10), userId });
+  if (!supabaseUrl || !supabaseKey || !userId) {
+    console.warn('Supabase non configuré — push ignoré');
+    return;
+  }
+
 async function supabasePull(settings) {
   const { supabaseUrl, supabaseKey, userId } = settings;
   if (!supabaseUrl || !supabaseKey || !userId) return null;
