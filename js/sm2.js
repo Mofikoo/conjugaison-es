@@ -141,7 +141,7 @@ function getDefaultSettings() {
     },
     verbs: 'all',
     accentStrict: false,
-    openrouterKey: '',
+    openrouterKey: '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',
     supabaseUrl: 'https://qtouidbqdtbdhlpnokna.supabase.co',
     supabaseKey: 'sb_publishable_wbsDps2AAkTwmaTD0tSUAQ_PwXD_jhd',
     userId: '',
