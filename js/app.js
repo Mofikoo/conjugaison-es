@@ -228,8 +228,8 @@ async function renderHome() {
 // ─── STUDY SESSION ────────────────────────────────────────────────────────────
 function startSession() {
   const due = getDueCards(state, settings).sort(() => Math.random() - 0.5);
-  // Introduire jusqu'à 20 nouvelles cartes si peu de cartes dues
-  const newCards = getNewCards(state, settings);
+  // Introduire jusqu'à 20 nouvelles cartes — mélangées pour varier les verbes
+  const newCards = getNewCards(state, settings).sort(() => Math.random() - 0.5);
   const newToIntroduce = newCards.slice(0, Math.max(0, 20 - due.length));
   // Marquer les nouvelles cartes comme "en cours d'introduction" (nextReview = now)
   newToIntroduce.forEach(c => {
