@@ -603,7 +603,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('answer-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       const fb = document.getElementById('feedback');
-      if (fb.style.display === 'none' || !fb.style.display) checkAnswer();
+      if (fb.style.display === 'none' || !fb.style.display) {
+        checkAnswer();
+      } else {
+        // Feedback visible → deuxième Entrée = Facile
+        rate(5);
+      }
     }
   });
 
