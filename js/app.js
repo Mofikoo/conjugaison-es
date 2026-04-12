@@ -61,9 +61,13 @@ async function renderHome() {
   setText('stat-mastered', stats.mastered);
   setText('stat-total',    stats.total);
   const btn = document.getElementById('btn-study');
-  btn.disabled = stats.due === 0;
+  const newAvailable = getNewCards(state, settings).length;
+  const canStudy = stats.due > 0 || newAvailable > 0;
+  btn.disabled = !canStudy;
   btn.textContent = stats.due > 0
     ? `Réviser (${stats.due} carte${stats.due > 1 ? 's' : ''})`
+    : newAvailable > 0
+    ? `Nouvelles cartes (${Math.min(20, newAvailable)})`
     : 'Aucune carte à réviser';
   showScreen('home');
 }
