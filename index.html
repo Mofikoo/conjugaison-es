@@ -230,10 +230,28 @@
 <script src="js/ai.js"></script>
 <script src="js/app.js"></script>
 <script>
-  function resetData() {
+  async function resetData() {
     if (!confirm('Supprimer toute la progression ? Impossible d\'annuler.')) return;
+    const id = activeProfile?.id;
+    // Nettoyer localStorage
+    if (id) {
+      localStorage.removeItem('conjugaison_sm2_' + id);
+      localStorage.removeItem('conjugaison_cardstats_' + id);
+    }
     localStorage.removeItem('conjugaison_sm2_v1');
-    state = getOrInitState(settings);
+    // Nettoyer Supabase
+    if (settings.supabaseUrl && settings.supabaseKey && settings.userId) {
+      await fetch(`${settings.supabaseUrl}/rest/v1/progress?user_id=eq.${settings.userId}`, {
+        method: 'DELETE',
+        headers: { 'apikey': settings.supabaseKey, 'Authorization': `Bearer ${settings.supabaseKey}` }
+      }).catch(() => {});
+      await fetch(`${settings.supabaseUrl}/rest/v1/stats?user_id=eq.${settings.userId}`, {
+        method: 'DELETE',
+        headers: { 'apikey': settings.supabaseKey, 'Authorization': `Bearer ${settings.supabaseKey}` }
+      }).catch(() => {});
+    }
+    state = {};
+    cardStats = {};
     renderHome();
   }
   if ('serviceWorker' in navigator) {
