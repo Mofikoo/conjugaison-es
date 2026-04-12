@@ -142,7 +142,8 @@ function getDefaultSettings() {
 }
 
 function initCardState() {
-  return { interval:1, easeFactor:2.5, repetitions:0, nextReview:now(), lastReviewed:null };
+  // nextReview: null = carte jamais vue, sera introduite progressivement
+  return { interval:1, easeFactor:2.5, repetitions:0, nextReview:null, lastReviewed:null };
 }
 
 function getOrInitState(settings) {
@@ -165,7 +166,19 @@ function getActiveCards(settings) {
 
 function getDueCards(state, settings) {
   const t = now();
-  return getActiveCards(settings).filter(c => state[c.id] && state[c.id].nextReview <= t);
+  return getActiveCards(settings).filter(c => {
+    const s = state[c.id];
+    // nextReview null = jamais vue = pas due (sera dans les nouvelles)
+    return s && s.nextReview !== null && s.nextReview <= t;
+  });
+}
+
+function getNewCards(state, settings) {
+  // Cartes jamais vues — introduites par batch de 20 par session
+  return getActiveCards(settings).filter(c => {
+    const s = state[c.id];
+    return s && s.nextReview === null;
+  });
 }
 
 function getStats(state, settings) {
@@ -175,12 +188,12 @@ function getStats(state, settings) {
   active.forEach(c => {
     const s = state[c.id];
     if (!s) return;
-    const isNew      = s.repetitions === 0 && !s.failed && !s.lastReviewed;
+    const isNew      = s.nextReview === null;
     const isMastered = s.repetitions >= 4 && s.interval >= 21;
     if (isNew) newCount++;
     else if (isMastered) mastered++;
     else learning++;
-    if (s.nextReview <= t) due++;
+    if (s.nextReview !== null && s.nextReview <= t) due++;
   });
   return { total: active.length, due, mastered, learning, newCount };
 }

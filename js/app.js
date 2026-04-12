@@ -19,12 +19,18 @@ function showScreen(id) {
 async function renderHome() {
   const remote = await supabasePull(settings);
   if (remote) {
-    Object.entries(remote).forEach(([id, s]) => { state[id] = s; });
+    // Merge remote dans state : remote gagne sauf si local est plus récent
+    Object.entries(remote).forEach(([id, s]) => {
+      const local = state[id];
+      // Prendre la version la plus récente (lastReviewed plus grand)
+      if (!local || (s.lastReviewed || 0) >= (local.lastReviewed || 0)) {
+        state[id] = s;
+      }
+    });
     saveState(state);
   }
   const remoteStats = await supabaseStatsPull(settings);
   if (remoteStats) {
-    // Merge : additionner les compteurs (max entre local et remote)
     Object.entries(remoteStats).forEach(([id, s]) => {
       const local = cardStats[id];
       if (!local) { cardStats[id] = s; return; }
@@ -40,7 +46,15 @@ async function renderHome() {
     });
     saveCardStats(cardStats);
   }
-  state = getOrInitState(settings);
+
+  // Initialiser uniquement les cartes actives qui n'ont PAS encore d'état
+  // Ne jamais écraser un état existant
+  getActiveCards(settings).forEach(c => {
+    if (!state[c.id]) {
+      state[c.id] = { interval:1, easeFactor:2.5, repetitions:0, nextReview:now(), lastReviewed:null };
+    }
+  });
+
   const stats = getStats(state, settings);
   setText('stat-due',      stats.due);
   setText('stat-learning', stats.learning);
@@ -53,10 +67,28 @@ async function renderHome() {
     : 'Aucune carte à réviser';
   showScreen('home');
 }
+  setText('stat-due',      stats.due);
+  setText('stat-learning', stats.learning);
+  setText('stat-mastered', stats.mastered);
+  setText('stat-total',    stats.total);
+  const btn = document.getElementById('btn-study');
+  btn.disabled = stats.due === 0;
+  btn.textContent = stats.due > 0
+    ? `Réviser (${stats.due} carte${stats.due > 1 ? 's' : ''})`
+    : 'Aucune carte à réviser';
+  showScreen('home');
 
 // ─── STUDY SESSION ────────────────────────────────────────────────────────────
 function startSession() {
-  queue     = getDueCards(state, settings).sort(() => Math.random() - 0.5);
+  const due = getDueCards(state, settings).sort(() => Math.random() - 0.5);
+  // Introduire jusqu'à 20 nouvelles cartes si peu de cartes dues
+  const newCards = getNewCards(state, settings);
+  const newToIntroduce = newCards.slice(0, Math.max(0, 20 - due.length));
+  // Marquer les nouvelles cartes comme "en cours d'introduction" (nextReview = now)
+  newToIntroduce.forEach(c => {
+    state[c.id].nextReview = now();
+  });
+  queue     = [...due, ...newToIntroduce].sort(() => Math.random() - 0.5);
   failQueue = [];
   if (queue.length === 0) { renderHome(); return; }
   sessionCorrect = 0;
@@ -274,10 +306,10 @@ function renderCardList() {
     list = cards.filter(c => {
       const s = state[c.id];
       if (!s) return false;
-      if (manageFilter === 'due')      return s.nextReview <= t;
+      if (manageFilter === 'due')      return s.nextReview !== null && s.nextReview <= t;
       if (manageFilter === 'mastered') return s.repetitions >= 4 && s.interval >= 21;
-      if (manageFilter === 'learning') return (s.repetitions > 0 || s.failed) && !(s.repetitions >= 4 && s.interval >= 21);
-      if (manageFilter === 'new')      return s.repetitions === 0 && !s.failed;
+      if (manageFilter === 'learning') return s.nextReview !== null && (s.repetitions > 0 || s.failed) && !(s.repetitions >= 4 && s.interval >= 21);
+      if (manageFilter === 'new')      return s.nextReview === null;
       return true;
     });
   }
@@ -289,8 +321,8 @@ function renderCardList() {
 
   container.innerHTML = list.slice(0, 200).map(c => {
     const s = state[c.id];
-    const isDue      = s.nextReview <= t;
-    const isNew      = s.repetitions === 0;
+    const isNew      = s.nextReview === null;
+    const isDue      = !isNew && s.nextReview <= t;
     const isMastered = s.repetitions >= 4 && s.interval >= 21;
     const pill = isNew
       ? '<span class="pill pill-new">Nouveau</span>'
