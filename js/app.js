@@ -618,24 +618,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Démarrer sur l'écran profils ou directement home si profil mémorisé
+  // Démarrer sur l'écran profils — charger depuis Supabase si localStorage vide
   const lastProfileId = loadActiveProfileId();
-  const profiles = loadProfiles();
-  if (lastProfileId && profiles.find(p => p.id === lastProfileId)) {
+  const localProfiles = loadProfiles();
+
+  if (lastProfileId && localProfiles.find(p => p.id === lastProfileId)) {
+    // Appareil connu avec profil mémorisé → aller direct
     selectProfile(lastProfileId);
-  } else if (profiles.length === 1) {
-    selectProfile(profiles[0].id);
-  } else if (profiles.length === 0) {
-    // Première utilisation — pas de profil, aller direct à l'accueil
-    document.querySelector('.topbar').style.display = '';
-    settings = loadSettings();
-    state = {};
-    cardStats = {};
-    getActiveCards(settings).forEach(c => {
-      state[c.id] = { interval:1, easeFactor:2.5, repetitions:0, nextReview:null, lastReviewed:null };
-    });
-    renderHome();
   } else {
+    // Nouvel appareil ou pas de profil mémorisé → afficher l'écran profils
+    // (renderProfileScreen va charger depuis Supabase automatiquement)
     renderProfileScreen();
   }
 });

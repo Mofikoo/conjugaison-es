@@ -113,10 +113,17 @@ function saveState(state) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
 }
 
+const SUPABASE_URL = 'https://qtouidbqdtbdhlpnokna.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_wbsDps2AAkTwmaTD0tSUAQ_PwXD_jhd';
+
 function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? JSON.parse(raw) : getDefaultSettings();
+    const s = raw ? JSON.parse(raw) : getDefaultSettings();
+    // Toujours injecter les credentials Supabase même si settings existent déjà
+    if (!s.supabaseUrl) s.supabaseUrl = SUPABASE_URL;
+    if (!s.supabaseKey) s.supabaseKey = SUPABASE_KEY;
+    return s;
   } catch { return getDefaultSettings(); }
 }
 
@@ -135,8 +142,8 @@ function getDefaultSettings() {
     verbs: 'all',
     accentStrict: false,
     openrouterKey: '',
-    supabaseUrl: '',
-    supabaseKey: '',
+    supabaseUrl: 'https://qtouidbqdtbdhlpnokna.supabase.co',
+    supabaseKey: 'sb_publishable_wbsDps2AAkTwmaTD0tSUAQ_PwXD_jhd',
     userId: '',
   };
 }
