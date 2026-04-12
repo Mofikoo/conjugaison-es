@@ -17,7 +17,7 @@
 
   <!-- TOPBAR -->
   <div class="topbar">
-    <span class="topbar-brand">conjugar</span>
+    <span class="topbar-brand" id="topbar-brand" onclick="showProfilePicker()" style="cursor:pointer">conjugar</span>
     <div class="topbar-nav">
       <button class="btn btn-sm btn-ghost" id="btn-guide">Guide</button>
       <button class="btn btn-sm btn-ghost" id="btn-translation">Traduire</button>
@@ -213,6 +213,13 @@
       <h2 class="screen-title" style="margin:0">Statistiques</h2>
     </div>
     <div class="scroll-area" id="stats-content"></div>
+  </div>
+
+  <!-- PROFILES -->
+  <div id="screen-profiles" class="screen">
+    <h1 class="profiles-title">Aprende a <em>conjugar</em></h1>
+    <p class="profiles-sub">Qui révise aujourd'hui ?</p>
+    <div class="profiles-grid" id="profiles-grid"></div>
   </div>
 
 </div><!-- /#app -->

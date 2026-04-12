@@ -708,3 +708,118 @@ textarea.text-input::placeholder { color: var(--text3); }
 @media (max-width: 380px) {
   .rating-grid-4 { grid-template-columns: 1fr 1fr; }
 }
+
+/* ─── PROFILE SCREEN ─────────────────────────────────────────────────────── */
+#screen-profiles {
+  justify-content: center;
+  align-items: center;
+  min-height: 100dvh;
+  padding: 2rem 0;
+}
+.profiles-title {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 400;
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+.profiles-title em { font-style: italic; color: var(--accent); }
+.profiles-sub {
+  font-size: 0.88rem;
+  color: var(--text3);
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+.profiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+.profile-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.profile-card:hover { border-color: var(--accent); background: var(--bg3); }
+.profile-card:active { transform: scale(0.97); }
+.profile-avatar { font-size: 2.5rem; line-height: 1; margin-bottom: 0.6rem; }
+.profile-name { font-size: 0.95rem; font-weight: 500; color: var(--text); }
+.profile-card-add {
+  border-style: dashed;
+  color: var(--text3);
+}
+.profile-card-add .profile-avatar { font-size: 2rem; color: var(--text3); }
+.profile-card-add:hover { border-color: var(--accent); color: var(--accent); }
+.profile-card-add:hover .profile-avatar { color: var(--accent); }
+.profile-delete-btn {
+  position: absolute;
+  top: 6px; right: 8px;
+  font-size: 0.7rem;
+  color: var(--text3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.profile-card:hover .profile-delete-btn { opacity: 1; }
+.profile-delete-btn:hover { color: var(--wrong); }
+
+/* Modal ajout profil */
+.profile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1.5rem;
+}
+.profile-modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 320px;
+}
+.profile-modal h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 400;
+  margin-bottom: 1.25rem;
+  color: var(--text);
+}
+.avatar-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+.avatar-opt {
+  font-size: 1.5rem;
+  padding: 0.3rem;
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.1s;
+  background: none;
+  line-height: 1;
+}
+.avatar-opt.selected { border-color: var(--accent); background: rgba(212,168,83,0.1); }
+.profile-active-name {
+  font-size: 0.8rem;
+  color: var(--text3);
+  margin-left: auto;
+  font-style: italic;
+}

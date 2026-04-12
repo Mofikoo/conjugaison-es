@@ -91,3 +91,68 @@ async function supabaseStatsPull(settings) {
     return cs;
   } catch (e) { console.warn('Supabase stats pull failed', e); return null; }
 }
+
+// ─── PROFILES ────────────────────────────────────────────────────────────────
+
+const PROFILES_KEY = 'conjugaison_profiles_v1';
+const ACTIVE_PROFILE_KEY = 'conjugaison_active_profile_v1';
+
+const AVATARS = ['🧑','👩','👨','🧒','👧','👦','🧑‍🎓','👩‍🎓','🦊','🐻','🐼','🦁'];
+
+function loadProfiles() {
+  try { return JSON.parse(localStorage.getItem(PROFILES_KEY) || '[]'); } catch { return []; }
+}
+
+function saveProfiles(profiles) {
+  try { localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles)); } catch {}
+}
+
+function loadActiveProfileId() {
+  return localStorage.getItem(ACTIVE_PROFILE_KEY) || null;
+}
+
+function saveActiveProfileId(id) {
+  localStorage.setItem(ACTIVE_PROFILE_KEY, id);
+}
+
+function generateProfileId() {
+  return 'p_' + Math.random().toString(36).slice(2, 10);
+}
+
+async function syncProfilesWithSupabase(settings) {
+  const { supabaseUrl, supabaseKey } = settings;
+  if (!supabaseUrl || !supabaseKey) return null;
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/profiles?select=*`, {
+      headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function saveProfileToSupabase(profile, settings) {
+  const { supabaseUrl, supabaseKey } = settings;
+  if (!supabaseUrl || !supabaseKey) return;
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/profiles`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({ id: profile.id, name: profile.name, avatar: profile.avatar, created_at: profile.createdAt }),
+    });
+  } catch {}
+}
+
+async function deleteProfileFromSupabase(profileId, settings) {
+  const { supabaseUrl, supabaseKey } = settings;
+  if (!supabaseUrl || !supabaseKey) return;
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${profileId}`, {
+      method: 'DELETE',
+      headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+    });
+  } catch {}
+}

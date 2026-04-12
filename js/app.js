@@ -1,12 +1,165 @@
 // ─── APP STATE ───────────────────────────────────────────────────────────────
 let settings   = loadSettings();
-let state      = getOrInitState(settings);
-let cardStats  = loadCardStats();
+let state      = {};
+let cardStats  = {};
 let queue      = [];
 let failQueue  = [];
 let current    = null;
 let sessionCorrect = 0;
 let sessionTotal   = 0;
+let activeProfile  = null; // { id, name, avatar }
+
+// ─── PROFILE SCREEN ──────────────────────────────────────────────────────────
+async function renderProfileScreen() {
+  // Masquer la topbar sur l'écran profils
+  document.querySelector('.topbar').style.display = 'none';
+  showScreen('profiles');
+
+  // Charger les profils locaux
+  let profiles = loadProfiles();
+
+  // Sync depuis Supabase si configuré
+  const baseSettings = loadSettings();
+  if (baseSettings.supabaseUrl && baseSettings.supabaseKey) {
+    const remote = await syncProfilesWithSupabase(baseSettings);
+    if (remote && remote.length > 0) {
+      // Merge : ajouter les profils distants manquants en local
+      remote.forEach(r => {
+        if (!profiles.find(p => p.id === r.id)) {
+          profiles.push({ id: r.id, name: r.name, avatar: r.avatar || '🧑', createdAt: r.created_at });
+        }
+      });
+      saveProfiles(profiles);
+    }
+  }
+
+  renderProfileGrid(profiles);
+}
+
+function renderProfileGrid(profiles) {
+  const grid = document.getElementById('profiles-grid');
+  grid.innerHTML = profiles.map(p => `
+    <div class="profile-card" onclick="selectProfile('${p.id}')">
+      <button class="profile-delete-btn" onclick="deleteProfile(event,'${p.id}')">✕</button>
+      <div class="profile-avatar">${p.avatar}</div>
+      <div class="profile-name">${p.name}</div>
+    </div>`).join('') + (profiles.length < 4 ? `
+    <div class="profile-card profile-card-add" onclick="showAddProfile()">
+      <div class="profile-avatar">+</div>
+      <div class="profile-name" style="color:var(--text3)">Ajouter</div>
+    </div>` : '');
+}
+
+async function selectProfile(id) {
+  const profiles = loadProfiles();
+  const profile = profiles.find(p => p.id === id);
+  if (!profile) return;
+
+  activeProfile = profile;
+  saveActiveProfileId(id);
+
+  // Mettre à jour settings avec le userId du profil
+  settings = loadSettings();
+  settings.userId = id;
+  saveSettings(settings);
+
+  // Charger state et cardStats pour ce profil depuis localStorage
+  state     = JSON.parse(localStorage.getItem('conjugaison_sm2_' + id) || '{}');
+  cardStats = JSON.parse(localStorage.getItem('conjugaison_cardstats_' + id) || '{}');
+
+  // Mettre à jour le topbar
+  document.querySelector('.topbar').style.display = '';
+  updateTopbarProfile(profile);
+
+  await renderHome();
+}
+
+function updateTopbarProfile(profile) {
+  const brand = document.getElementById('topbar-brand');
+  if (brand) brand.textContent = profile.avatar + ' ' + profile.name;
+}
+
+function showProfilePicker() {
+  renderProfileScreen();
+}
+
+function showAddProfile() {
+  // Créer le modal inline
+  const overlay = document.createElement('div');
+  overlay.className = 'profile-modal-overlay';
+  overlay.id = 'profile-modal';
+
+  let selectedAvatar = AVATARS[0];
+
+  overlay.innerHTML = `
+    <div class="profile-modal">
+      <h3>Nouveau profil</h3>
+      <div class="avatar-picker">
+        ${AVATARS.map((a, i) => `
+          <button class="avatar-opt${i === 0 ? ' selected' : ''}" onclick="selectAvatar(this,'${a}')">${a}</button>
+        `).join('')}
+      </div>
+      <label class="input-label">Prénom</label>
+      <input type="text" id="new-profile-name" class="text-input" placeholder="ex: Léo" maxlength="20"
+        style="margin-bottom:1rem" autocomplete="off" />
+      <div style="display:flex;gap:0.6rem">
+        <button class="btn" style="flex:1" onclick="closeAddProfile()">Annuler</button>
+        <button class="btn btn-primary" style="flex:1" onclick="confirmAddProfile()">Créer</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.getElementById('new-profile-name').focus();
+}
+
+function selectAvatar(btn, avatar) {
+  document.querySelectorAll('.avatar-opt').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function closeAddProfile() {
+  document.getElementById('profile-modal')?.remove();
+}
+
+async function confirmAddProfile() {
+  const name = document.getElementById('new-profile-name')?.value.trim();
+  if (!name) return;
+  const avatarBtn = document.querySelector('.avatar-opt.selected');
+  const avatar = avatarBtn ? avatarBtn.textContent : '🧑';
+
+  const profile = { id: generateProfileId(), name, avatar, createdAt: Date.now() };
+  const profiles = loadProfiles();
+  profiles.push(profile);
+  saveProfiles(profiles);
+
+  // Sync Supabase
+  const baseSettings = loadSettings();
+  await saveProfileToSupabase(profile, baseSettings);
+
+  closeAddProfile();
+  renderProfileGrid(profiles);
+}
+
+async function deleteProfile(e, id) {
+  e.stopPropagation();
+  const profiles = loadProfiles();
+  const profile = profiles.find(p => p.id === id);
+  if (!profile) return;
+  if (!confirm(`Supprimer le profil "${profile.name}" ? Sa progression sera perdue.`)) return;
+
+  const newProfiles = profiles.filter(p => p.id !== id);
+  saveProfiles(newProfiles);
+
+  // Nettoyer localStorage
+  localStorage.removeItem('conjugaison_sm2_' + id);
+  localStorage.removeItem('conjugaison_cardstats_' + id);
+
+  // Sync Supabase
+  const baseSettings = loadSettings();
+  await deleteProfileFromSupabase(id, baseSettings);
+
+  renderProfileGrid(newProfiles);
+}
 
 // ─── SCREEN ROUTING ──────────────────────────────────────────────────────────
 function showScreen(id) {
@@ -51,7 +204,7 @@ async function renderHome() {
   // Ne jamais écraser un état existant
   getActiveCards(settings).forEach(c => {
     if (!state[c.id]) {
-      state[c.id] = { interval:1, easeFactor:2.5, repetitions:0, nextReview:now(), lastReviewed:null };
+      state[c.id] = { interval:1, easeFactor:2.5, repetitions:0, nextReview:null, lastReviewed:null };
     }
   });
 
@@ -204,11 +357,15 @@ function rate(q) {
 
   const updated = sm2Update(state[current.id], q);
   state[current.id] = { ...state[current.id], ...updated };
-  saveState(state);
+
+  // Sauvegarde locale par profil
+  const profileKey = activeProfile ? 'conjugaison_sm2_' + activeProfile.id : STORAGE_KEY;
+  try { localStorage.setItem(profileKey, JSON.stringify(state)); } catch {}
 
   // Stats par carte
   cardStats = recordCardResult(current.id, isCorrect, q, cardStats);
-  saveCardStats(cardStats);
+  const statsKey = activeProfile ? 'conjugaison_cardstats_' + activeProfile.id : CARDSTATS_KEY;
+  try { localStorage.setItem(statsKey, JSON.stringify(cardStats)); } catch {}
 
   // Sync Supabase
   supabasePush(state, settings);
@@ -461,7 +618,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  renderHome();
+  // Démarrer sur l'écran profils ou directement home si profil mémorisé
+  const lastProfileId = loadActiveProfileId();
+  const profiles = loadProfiles();
+  if (lastProfileId && profiles.find(p => p.id === lastProfileId)) {
+    selectProfile(lastProfileId);
+  } else if (profiles.length === 1) {
+    selectProfile(profiles[0].id);
+  } else if (profiles.length === 0) {
+    // Première utilisation — pas de profil, aller direct à l'accueil
+    document.querySelector('.topbar').style.display = '';
+    settings = loadSettings();
+    state = {};
+    cardStats = {};
+    getActiveCards(settings).forEach(c => {
+      state[c.id] = { interval:1, easeFactor:2.5, repetitions:0, nextReview:null, lastReviewed:null };
+    });
+    renderHome();
+  } else {
+    renderProfileScreen();
+  }
 });
 
 // ─── CLAVIER CARACTÈRES SPÉCIAUX ─────────────────────────────────────────────
