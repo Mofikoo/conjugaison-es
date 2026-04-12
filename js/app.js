@@ -67,16 +67,6 @@ async function renderHome() {
     : 'Aucune carte à réviser';
   showScreen('home');
 }
-  setText('stat-due',      stats.due);
-  setText('stat-learning', stats.learning);
-  setText('stat-mastered', stats.mastered);
-  setText('stat-total',    stats.total);
-  const btn = document.getElementById('btn-study');
-  btn.disabled = stats.due === 0;
-  btn.textContent = stats.due > 0
-    ? `Réviser (${stats.due} carte${stats.due > 1 ? 's' : ''})`
-    : 'Aucune carte à réviser';
-  showScreen('home');
 
 // ─── STUDY SESSION ────────────────────────────────────────────────────────────
 function startSession() {
