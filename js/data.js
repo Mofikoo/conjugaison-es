@@ -1,19 +1,4 @@
 // ─── CONJUGAISON DATA ───────────────────────────────────────────────────────
-// Structure: verb → tense → [yo, tú, él, nosotros, vosotros, ellos]
-//
-// Temps couverts :
-//  presente             → présent de l'indicatif
-//  indefinido           → prétérit indéfini
-//  imperfecto           → imparfait de l'indicatif
-//  perfecto             → prétérit parfait composé (he/has... + participio)
-//  pluscuamperfecto     → plus-que-parfait (había/habías... + participio)
-//  futuro               → futur simple
-//  condicional          → conditionnel présent
-//  subjuntivo_presente  → subjonctif présent
-//  subjuntivo_imperfecto→ subjonctif imparfait (-ra)
-//  imperativo           → impératif affirmatif (yo = '—')
-//  imperativo_neg       → impératif négatif    (yo = '—')
-
 const PRONOUNS = ['yo', 'tú', 'él/ella', 'nosotros', 'vosotros', 'ellos/ellas'];
 
 const TENSE_LABELS = {
@@ -26,6 +11,7 @@ const TENSE_LABELS = {
   condicional:           'conditionnel',
   subjuntivo_presente:   'subjonctif présent',
   subjuntivo_imperfecto: 'subjonctif imparfait',
+  subjuntivo_pasado:     'subjonctif passé',
   imperativo:            'impératif',
   imperativo_neg:        'impératif négatif',
 };
@@ -45,6 +31,7 @@ const VERBS = {
     condicional:           ['hablaría','hablarías','hablaría','hablaríamos','hablaríais','hablarían'],
     subjuntivo_presente:   ['hable','hables','hable','hablemos','habléis','hablen'],
     subjuntivo_imperfecto: ['hablara','hablaras','hablara','habláramos','hablarais','hablaran'],
+    subjuntivo_pasado:     ['haya hablado','hayas hablado','haya hablado','hayamos hablado','hayáis hablado','hayan hablado'],
     imperativo:            ['—','habla','hable','hablemos','hablad','hablen'],
     imperativo_neg:        ['—','no hables','no hable','no hablemos','no habléis','no hablen'],
   },
@@ -59,6 +46,7 @@ const VERBS = {
     condicional:           ['trabajaría','trabajarías','trabajaría','trabajaríamos','trabajaríais','trabajarían'],
     subjuntivo_presente:   ['trabaje','trabajes','trabaje','trabajemos','trabajéis','trabajen'],
     subjuntivo_imperfecto: ['trabajara','trabajaras','trabajara','trabajáramos','trabajarais','trabajaran'],
+    subjuntivo_pasado:     ['haya trabajado','hayas trabajado','haya trabajado','hayamos trabajado','hayáis trabajado','hayan trabajado'],
     imperativo:            ['—','trabaja','trabaje','trabajemos','trabajad','trabajen'],
     imperativo_neg:        ['—','no trabajes','no trabaje','no trabajemos','no trabajéis','no trabajen'],
   },
@@ -73,6 +61,7 @@ const VERBS = {
     condicional:           ['escucharía','escucharías','escucharía','escucharíamos','escucharíais','escucharían'],
     subjuntivo_presente:   ['escuche','escuches','escuche','escuchemos','escuchéis','escuchen'],
     subjuntivo_imperfecto: ['escuchara','escucharas','escuchara','escucháramos','escucharais','escucharan'],
+    subjuntivo_pasado:     ['haya escuchado','hayas escuchado','haya escuchado','hayamos escuchado','hayáis escuchado','hayan escuchado'],
     imperativo:            ['—','escucha','escuche','escuchemos','escuchad','escuchen'],
     imperativo_neg:        ['—','no escuches','no escuche','no escuchemos','no escuchéis','no escuchen'],
   },
@@ -87,6 +76,7 @@ const VERBS = {
     condicional:           ['caminaría','caminarías','caminaría','caminaríamos','caminaríais','caminarían'],
     subjuntivo_presente:   ['camine','camines','camine','caminemos','caminéis','caminen'],
     subjuntivo_imperfecto: ['caminara','caminaras','caminara','camináramos','caminarais','caminaran'],
+    subjuntivo_pasado:     ['haya caminado','hayas caminado','haya caminado','hayamos caminado','hayáis caminado','hayan caminado'],
     imperativo:            ['—','camina','camine','caminemos','caminad','caminen'],
     imperativo_neg:        ['—','no camines','no camine','no caminemos','no caminéis','no caminen'],
   },
@@ -101,6 +91,7 @@ const VERBS = {
     condicional:           ['compraría','comprarías','compraría','compraríamos','compraríais','comprarían'],
     subjuntivo_presente:   ['compre','compres','compre','compremos','compréis','compren'],
     subjuntivo_imperfecto: ['comprara','compraras','comprara','compráramos','comprarais','compraran'],
+    subjuntivo_pasado:     ['haya comprado','hayas comprado','haya comprado','hayamos comprado','hayáis comprado','hayan comprado'],
     imperativo:            ['—','compra','compre','compremos','comprad','compren'],
     imperativo_neg:        ['—','no compres','no compre','no compremos','no compréis','no compren'],
   },
@@ -115,6 +106,7 @@ const VERBS = {
     condicional:           ['llevaría','llevarías','llevaría','llevaríamos','llevaríais','llevarían'],
     subjuntivo_presente:   ['lleve','lleves','lleve','llevemos','llevéis','lleven'],
     subjuntivo_imperfecto: ['llevara','llevaras','llevara','lleváramos','llevarais','llevaran'],
+    subjuntivo_pasado:     ['haya llevado','hayas llevado','haya llevado','hayamos llevado','hayáis llevado','hayan llevado'],
     imperativo:            ['—','lleva','lleve','llevemos','llevad','lleven'],
     imperativo_neg:        ['—','no lleves','no lleve','no llevemos','no llevéis','no lleven'],
   },
@@ -132,6 +124,7 @@ const VERBS = {
     condicional:           ['comería','comerías','comería','comeríamos','comeríais','comerían'],
     subjuntivo_presente:   ['coma','comas','coma','comamos','comáis','coman'],
     subjuntivo_imperfecto: ['comiera','comieras','comiera','comiéramos','comierais','comieran'],
+    subjuntivo_pasado:     ['haya comido','hayas comido','haya comido','hayamos comido','hayáis comido','hayan comido'],
     imperativo:            ['—','come','coma','comamos','comed','coman'],
     imperativo_neg:        ['—','no comas','no coma','no comamos','no comáis','no coman'],
   },
@@ -146,6 +139,7 @@ const VERBS = {
     condicional:           ['bebería','beberías','bebería','beberíamos','beberíais','beberían'],
     subjuntivo_presente:   ['beba','bebas','beba','bebamos','bebáis','beban'],
     subjuntivo_imperfecto: ['bebiera','bebieras','bebiera','bebiéramos','bebierais','bebieran'],
+    subjuntivo_pasado:     ['haya bebido','hayas bebido','haya bebido','hayamos bebido','hayáis bebido','hayan bebido'],
     imperativo:            ['—','bebe','beba','bebamos','bebed','beban'],
     imperativo_neg:        ['—','no bebas','no beba','no bebamos','no bebáis','no beban'],
   },
@@ -160,6 +154,7 @@ const VERBS = {
     condicional:           ['correría','correrías','correría','correríamos','correríais','correrían'],
     subjuntivo_presente:   ['corra','corras','corra','corramos','corráis','corran'],
     subjuntivo_imperfecto: ['corriera','corrieras','corriera','corriéramos','corrierais','corrieran'],
+    subjuntivo_pasado:     ['haya corrido','hayas corrido','haya corrido','hayamos corrido','hayáis corrido','hayan corrido'],
     imperativo:            ['—','corre','corra','corramos','corred','corran'],
     imperativo_neg:        ['—','no corras','no corra','no corramos','no corráis','no corran'],
   },
@@ -174,6 +169,7 @@ const VERBS = {
     condicional:           ['conocería','conocerías','conocería','conoceríamos','conoceríais','conocerían'],
     subjuntivo_presente:   ['conozca','conozcas','conozca','conozcamos','conozcáis','conozcan'],
     subjuntivo_imperfecto: ['conociera','conocieras','conociera','conociéramos','conocierais','conocieran'],
+    subjuntivo_pasado:     ['haya conocido','hayas conocido','haya conocido','hayamos conocido','hayáis conocido','hayan conocido'],
     imperativo:            ['—','conoce','conozca','conozcamos','conoced','conozcan'],
     imperativo_neg:        ['—','no conozcas','no conozca','no conozcamos','no conozcáis','no conozcan'],
   },
@@ -188,6 +184,7 @@ const VERBS = {
     condicional:           ['leería','leerías','leería','leeríamos','leeríais','leerían'],
     subjuntivo_presente:   ['lea','leas','lea','leamos','leáis','lean'],
     subjuntivo_imperfecto: ['leyera','leyeras','leyera','leyéramos','leyerais','leyeran'],
+    subjuntivo_pasado:     ['haya leído','hayas leído','haya leído','hayamos leído','hayáis leído','hayan leído'],
     imperativo:            ['—','lee','lea','leamos','leed','lean'],
     imperativo_neg:        ['—','no leas','no lea','no leamos','no leáis','no lean'],
   },
@@ -205,6 +202,7 @@ const VERBS = {
     condicional:           ['viviría','vivirías','viviría','viviríamos','viviríais','vivirían'],
     subjuntivo_presente:   ['viva','vivas','viva','vivamos','viváis','vivan'],
     subjuntivo_imperfecto: ['viviera','vivieras','viviera','viviéramos','vivierais','vivieran'],
+    subjuntivo_pasado:     ['haya vivido','hayas vivido','haya vivido','hayamos vivido','hayáis vivido','hayan vivido'],
     imperativo:            ['—','vive','viva','vivamos','vivid','vivan'],
     imperativo_neg:        ['—','no vivas','no viva','no vivamos','no viváis','no vivan'],
   },
@@ -219,6 +217,7 @@ const VERBS = {
     condicional:           ['escribiría','escribirías','escribiría','escribiríamos','escribiríais','escribirían'],
     subjuntivo_presente:   ['escriba','escribas','escriba','escribamos','escribáis','escriban'],
     subjuntivo_imperfecto: ['escribiera','escribieras','escribiera','escribiéramos','escribierais','escribieran'],
+    subjuntivo_pasado:     ['haya escrito','hayas escrito','haya escrito','hayamos escrito','hayáis escrito','hayan escrito'],
     imperativo:            ['—','escribe','escriba','escribamos','escribid','escriban'],
     imperativo_neg:        ['—','no escribas','no escriba','no escribamos','no escribáis','no escriban'],
   },
@@ -233,6 +232,7 @@ const VERBS = {
     condicional:           ['abriría','abrirías','abriría','abriríamos','abriríais','abrirían'],
     subjuntivo_presente:   ['abra','abras','abra','abramos','abráis','abran'],
     subjuntivo_imperfecto: ['abriera','abrieras','abriera','abriéramos','abrierais','abrieran'],
+    subjuntivo_pasado:     ['haya abierto','hayas abierto','haya abierto','hayamos abierto','hayáis abierto','hayan abierto'],
     imperativo:            ['—','abre','abra','abramos','abrid','abran'],
     imperativo_neg:        ['—','no abras','no abra','no abramos','no abráis','no abran'],
   },
@@ -250,6 +250,7 @@ const VERBS = {
     condicional:           ['sería','serías','sería','seríamos','seríais','serían'],
     subjuntivo_presente:   ['sea','seas','sea','seamos','seáis','sean'],
     subjuntivo_imperfecto: ['fuera','fueras','fuera','fuéramos','fuerais','fueran'],
+    subjuntivo_pasado:     ['haya sido','hayas sido','haya sido','hayamos sido','hayáis sido','hayan sido'],
     imperativo:            ['—','sé','sea','seamos','sed','sean'],
     imperativo_neg:        ['—','no seas','no sea','no seamos','no seáis','no sean'],
   },
@@ -264,6 +265,7 @@ const VERBS = {
     condicional:           ['estaría','estarías','estaría','estaríamos','estaríais','estarían'],
     subjuntivo_presente:   ['esté','estés','esté','estemos','estéis','estén'],
     subjuntivo_imperfecto: ['estuviera','estuvieras','estuviera','estuviéramos','estuvierais','estuvieran'],
+    subjuntivo_pasado:     ['haya estado','hayas estado','haya estado','hayamos estado','hayáis estado','hayan estado'],
     imperativo:            ['—','está','esté','estemos','estad','estén'],
     imperativo_neg:        ['—','no estés','no esté','no estemos','no estéis','no estén'],
   },
@@ -278,6 +280,7 @@ const VERBS = {
     condicional:           ['tendría','tendrías','tendría','tendríamos','tendríais','tendrían'],
     subjuntivo_presente:   ['tenga','tengas','tenga','tengamos','tengáis','tengan'],
     subjuntivo_imperfecto: ['tuviera','tuvieras','tuviera','tuviéramos','tuvierais','tuvieran'],
+    subjuntivo_pasado:     ['haya tenido','hayas tenido','haya tenido','hayamos tenido','hayáis tenido','hayan tenido'],
     imperativo:            ['—','ten','tenga','tengamos','tened','tengan'],
     imperativo_neg:        ['—','no tengas','no tenga','no tengamos','no tengáis','no tengan'],
   },
@@ -292,6 +295,7 @@ const VERBS = {
     condicional:           ['iría','irías','iría','iríamos','iríais','irían'],
     subjuntivo_presente:   ['vaya','vayas','vaya','vayamos','vayáis','vayan'],
     subjuntivo_imperfecto: ['fuera','fueras','fuera','fuéramos','fuerais','fueran'],
+    subjuntivo_pasado:     ['haya ido','hayas ido','haya ido','hayamos ido','hayáis ido','hayan ido'],
     imperativo:            ['—','ve','vaya','vayamos','id','vayan'],
     imperativo_neg:        ['—','no vayas','no vaya','no vayamos','no vayáis','no vayan'],
   },
@@ -306,6 +310,7 @@ const VERBS = {
     condicional:           ['haría','harías','haría','haríamos','haríais','harían'],
     subjuntivo_presente:   ['haga','hagas','haga','hagamos','hagáis','hagan'],
     subjuntivo_imperfecto: ['hiciera','hicieras','hiciera','hiciéramos','hicierais','hicieran'],
+    subjuntivo_pasado:     ['haya hecho','hayas hecho','haya hecho','hayamos hecho','hayáis hecho','hayan hecho'],
     imperativo:            ['—','haz','haga','hagamos','haced','hagan'],
     imperativo_neg:        ['—','no hagas','no haga','no hagamos','no hagáis','no hagan'],
   },
@@ -320,6 +325,7 @@ const VERBS = {
     condicional:           ['podría','podrías','podría','podríamos','podríais','podrían'],
     subjuntivo_presente:   ['pueda','puedas','pueda','podamos','podáis','puedan'],
     subjuntivo_imperfecto: ['pudiera','pudieras','pudiera','pudiéramos','pudierais','pudieran'],
+    subjuntivo_pasado:     ['haya podido','hayas podido','haya podido','hayamos podido','hayáis podido','hayan podido'],
     imperativo:            ['—','puede','pueda','podamos','poded','puedan'],
     imperativo_neg:        ['—','no puedas','no pueda','no podamos','no podáis','no puedan'],
   },
@@ -334,6 +340,7 @@ const VERBS = {
     condicional:           ['querría','querrías','querría','querríamos','querríais','querrían'],
     subjuntivo_presente:   ['quiera','quieras','quiera','queramos','queráis','quieran'],
     subjuntivo_imperfecto: ['quisiera','quisieras','quisiera','quisiéramos','quisierais','quisieran'],
+    subjuntivo_pasado:     ['haya querido','hayas querido','haya querido','hayamos querido','hayáis querido','hayan querido'],
     imperativo:            ['—','quiere','quiera','queramos','quered','quieran'],
     imperativo_neg:        ['—','no quieras','no quiera','no queramos','no queráis','no quieran'],
   },
@@ -348,6 +355,7 @@ const VERBS = {
     condicional:           ['diría','dirías','diría','diríamos','diríais','dirían'],
     subjuntivo_presente:   ['diga','digas','diga','digamos','digáis','digan'],
     subjuntivo_imperfecto: ['dijera','dijeras','dijera','dijéramos','dijerais','dijeran'],
+    subjuntivo_pasado:     ['haya dicho','hayas dicho','haya dicho','hayamos dicho','hayáis dicho','hayan dicho'],
     imperativo:            ['—','di','diga','digamos','decid','digan'],
     imperativo_neg:        ['—','no digas','no diga','no digamos','no digáis','no digan'],
   },
@@ -362,6 +370,7 @@ const VERBS = {
     condicional:           ['sabría','sabrías','sabría','sabríamos','sabríais','sabrían'],
     subjuntivo_presente:   ['sepa','sepas','sepa','sepamos','sepáis','sepan'],
     subjuntivo_imperfecto: ['supiera','supieras','supiera','supiéramos','supierais','supieran'],
+    subjuntivo_pasado:     ['haya sabido','hayas sabido','haya sabido','hayamos sabido','hayáis sabido','hayan sabido'],
     imperativo:            ['—','sabe','sepa','sepamos','sabed','sepan'],
     imperativo_neg:        ['—','no sepas','no sepa','no sepamos','no sepáis','no sepan'],
   },
@@ -376,6 +385,7 @@ const VERBS = {
     condicional:           ['pondría','pondrías','pondría','pondríamos','pondríais','pondrían'],
     subjuntivo_presente:   ['ponga','pongas','ponga','pongamos','pongáis','pongan'],
     subjuntivo_imperfecto: ['pusiera','pusieras','pusiera','pusiéramos','pusierais','pusieran'],
+    subjuntivo_pasado:     ['haya puesto','hayas puesto','haya puesto','hayamos puesto','hayáis puesto','hayan puesto'],
     imperativo:            ['—','pon','ponga','pongamos','poned','pongan'],
     imperativo_neg:        ['—','no pongas','no ponga','no pongamos','no pongáis','no pongan'],
   },
@@ -390,6 +400,7 @@ const VERBS = {
     condicional:           ['vendría','vendrías','vendría','vendríamos','vendríais','vendrían'],
     subjuntivo_presente:   ['venga','vengas','venga','vengamos','vengáis','vengan'],
     subjuntivo_imperfecto: ['viniera','vinieras','viniera','viniéramos','vinierais','vinieran'],
+    subjuntivo_pasado:     ['haya venido','hayas venido','haya venido','hayamos venido','hayáis venido','hayan venido'],
     imperativo:            ['—','ven','venga','vengamos','venid','vengan'],
     imperativo_neg:        ['—','no vengas','no venga','no vengamos','no vengáis','no vengan'],
   },
@@ -404,6 +415,7 @@ const VERBS = {
     condicional:           ['vería','verías','vería','veríamos','veríais','verían'],
     subjuntivo_presente:   ['vea','veas','vea','veamos','veáis','vean'],
     subjuntivo_imperfecto: ['viera','vieras','viera','viéramos','vierais','vieran'],
+    subjuntivo_pasado:     ['haya visto','hayas visto','haya visto','hayamos visto','hayáis visto','hayan visto'],
     imperativo:            ['—','ve','vea','veamos','ved','vean'],
     imperativo_neg:        ['—','no veas','no vea','no veamos','no veáis','no vean'],
   },
@@ -418,6 +430,7 @@ const VERBS = {
     condicional:           ['daría','darías','daría','daríamos','daríais','darían'],
     subjuntivo_presente:   ['dé','des','dé','demos','deis','den'],
     subjuntivo_imperfecto: ['diera','dieras','diera','diéramos','dierais','dieran'],
+    subjuntivo_pasado:     ['haya dado','hayas dado','haya dado','hayamos dado','hayáis dado','hayan dado'],
     imperativo:            ['—','da','dé','demos','dad','den'],
     imperativo_neg:        ['—','no des','no dé','no demos','no deis','no den'],
   },
@@ -432,6 +445,7 @@ const VERBS = {
     condicional:           ['saldría','saldrías','saldría','saldríamos','saldríais','saldrían'],
     subjuntivo_presente:   ['salga','salgas','salga','salgamos','salgáis','salgan'],
     subjuntivo_imperfecto: ['saliera','salieras','saliera','saliéramos','salierais','salieran'],
+    subjuntivo_pasado:     ['haya salido','hayas salido','haya salido','hayamos salido','hayáis salido','hayan salido'],
     imperativo:            ['—','sal','salga','salgamos','salid','salgan'],
     imperativo_neg:        ['—','no salgas','no salga','no salgamos','no salgáis','no salgan'],
   },
@@ -446,6 +460,7 @@ const VERBS = {
     condicional:           ['dormiría','dormirías','dormiría','dormiríamos','dormiríais','dormirían'],
     subjuntivo_presente:   ['duerma','duermas','duerma','durmamos','durmáis','duerman'],
     subjuntivo_imperfecto: ['durmiera','durmieras','durmiera','durmiéramos','durmierais','durmieran'],
+    subjuntivo_pasado:     ['haya dormido','hayas dormido','haya dormido','hayamos dormido','hayáis dormido','hayan dormido'],
     imperativo:            ['—','duerme','duerma','durmamos','dormid','duerman'],
     imperativo_neg:        ['—','no duermas','no duerma','no durmamos','no durmáis','no duerman'],
   },
@@ -460,6 +475,7 @@ const VERBS = {
     condicional:           ['jugaría','jugarías','jugaría','jugaríamos','jugaríais','jugarían'],
     subjuntivo_presente:   ['juegue','juegues','juegue','juguemos','juguéis','jueguen'],
     subjuntivo_imperfecto: ['jugara','jugaras','jugara','jugáramos','jugarais','jugaran'],
+    subjuntivo_pasado:     ['haya jugado','hayas jugado','haya jugado','hayamos jugado','hayáis jugado','hayan jugado'],
     imperativo:            ['—','juega','juegue','juguemos','jugad','jueguen'],
     imperativo_neg:        ['—','no juegues','no juegue','no juguemos','no juguéis','no jueguen'],
   },
@@ -474,6 +490,7 @@ const VERBS = {
     condicional:           ['pensaría','pensarías','pensaría','pensaríamos','pensaríais','pensarían'],
     subjuntivo_presente:   ['piense','pienses','piense','pensemos','penséis','piensen'],
     subjuntivo_imperfecto: ['pensara','pensaras','pensara','pensáramos','pensarais','pensaran'],
+    subjuntivo_pasado:     ['haya pensado','hayas pensado','haya pensado','hayamos pensado','hayáis pensado','hayan pensado'],
     imperativo:            ['—','piensa','piense','pensemos','pensad','piensen'],
     imperativo_neg:        ['—','no pienses','no piense','no pensemos','no penséis','no piensen'],
   },
@@ -488,21 +505,24 @@ const VERBS = {
     condicional:           ['volvería','volverías','volvería','volveríamos','volveríais','volverían'],
     subjuntivo_presente:   ['vuelva','vuelvas','vuelva','volvamos','volváis','vuelvan'],
     subjuntivo_imperfecto: ['volviera','volvieras','volviera','volviéramos','volvierais','volvieran'],
+    subjuntivo_pasado:     ['haya vuelto','hayas vuelto','haya vuelto','hayamos vuelto','hayáis vuelto','hayan vuelto'],
     imperativo:            ['—','vuelve','vuelva','volvamos','volved','vuelvan'],
     imperativo_neg:        ['—','no vuelvas','no vuelva','no volvamos','no volváis','no vuelvan'],
   },
 };
 
 // ─── GENERATE CARDS FROM VERBS ───────────────────────────────────────────────
-// Note: pour l'impératif, yo (index 0) = '—', pas de carte générée
 function generateCards() {
   const cards = [];
   let id = 1;
   for (const [verb, data] of Object.entries(VERBS)) {
     for (const [tense, forms] of Object.entries(data)) {
       if (tense === 'label') continue;
+      if (!TENSE_LABELS[tense]) continue;
+      const isImperativo = tense === 'imperativo' || tense === 'imperativo_neg';
       forms.forEach((answer, i) => {
         if (answer === '—') return;
+        if (isImperativo && i === 0) return;
         cards.push({
           id: id++,
           verb,
