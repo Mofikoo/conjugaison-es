@@ -600,15 +600,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  document.getElementById('answer-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      const fb = document.getElementById('feedback');
-      if (fb.style.display === 'none' || !fb.style.display) {
-        checkAnswer();
-      } else {
-        // Feedback visible → deuxième Entrée = Facile
-        rate(5);
-      }
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    // Ne pas intercepter si on est dans un champ texte autre que l'input de réponse
+    if (e.target.tagName === 'TEXTAREA') return;
+    if (e.target.tagName === 'INPUT' && e.target.id !== 'answer-input') return;
+
+    const fb = document.getElementById('feedback');
+    const feedbackVisible = fb && fb.style.display !== 'none' && fb.innerHTML !== '';
+    if (feedbackVisible) {
+      rate(5);
+    } else if (document.getElementById('screen-study').classList.contains('active')) {
+      const inp = document.getElementById('answer-input');
+      if (inp && inp.value.trim()) checkAnswer();
     }
   });
 
