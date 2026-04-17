@@ -1,534 +1,1069 @@
-// ─── CONJUGAISON DATA ───────────────────────────────────────────────────────
-// Structure: verb → tense → [yo, tú, él, nosotros, vosotros, ellos]
-//
-// Temps couverts :
-//  presente             → présent de l'indicatif
-//  indefinido           → prétérit indéfini
-//  imperfecto           → imparfait de l'indicatif
-//  perfecto             → prétérit parfait composé (he/has... + participio)
-//  pluscuamperfecto     → plus-que-parfait (había/habías... + participio)
-//  futuro               → futur simple
-//  condicional          → conditionnel présent
-//  subjuntivo_presente  → subjonctif présent
-//  subjuntivo_imperfecto→ subjonctif imparfait (-ra)
-//  imperativo           → impératif affirmatif (yo = '—')
-//  imperativo_neg       → impératif négatif    (yo = '—')
+// ─── APP STATE ───────────────────────────────────────────────────────────────
+let settings   = loadSettings();
+let state      = {};
+let cardStats  = {};
+let queue      = [];
+let failQueue  = [];
+let current    = null;
+let sessionCorrect = 0;
+let sessionTotal   = 0;
+let activeProfile  = null; // { id, name, avatar }
 
-const PRONOUNS = ['yo', 'tú', 'él/ella', 'nosotros', 'vosotros', 'ellos/ellas'];
+// ─── PROFILE SCREEN ──────────────────────────────────────────────────────────
+async function renderProfileScreen() {
+  // Masquer la topbar sur l'écran profils
+  document.querySelector('.topbar').style.display = 'none';
+  showScreen('profiles');
 
-const TENSE_LABELS = {
-  presente:              'présent',
-  indefinido:            'prétérit indéfini',
-  imperfecto:            'imparfait',
-  perfecto:              'prétérit parfait composé',
-  pluscuamperfecto:      'plus-que-parfait',
-  futuro:                'futur simple',
-  condicional:           'conditionnel',
-  subjuntivo_presente:   'subjonctif présent',
-  subjuntivo_imperfecto: 'subjonctif imparfait',
-  subjuntivo_pasado:     'subjonctif passé',
-  imperativo:            'impératif',
-  imperativo_neg:        'impératif négatif',
-};
+  // Charger les profils locaux
+  let profiles = loadProfiles();
 
-// Auxiliaire haber au subjonctif présent
-const HABER_SUBJ = ['haya','hayas','haya','hayamos','hayáis','hayan'];
-
-const VERBS = {
-
-  // ═══ RÉGULIERS -AR ═══════════════════════════════════════════════════════
-
-  hablar: {
-    label: 'parler',
-    presente:              ['hablo','hablas','habla','hablamos','habláis','hablan'],
-    indefinido:            ['hablé','hablaste','habló','hablamos','hablasteis','hablaron'],
-    imperfecto:            ['hablaba','hablabas','hablaba','hablábamos','hablabais','hablaban'],
-    perfecto:              ['he hablado','has hablado','ha hablado','hemos hablado','habéis hablado','han hablado'],
-    pluscuamperfecto:      ['había hablado','habías hablado','había hablado','habíamos hablado','habíais hablado','habían hablado'],
-    futuro:                ['hablaré','hablarás','hablará','hablaremos','hablaréis','hablarán'],
-    condicional:           ['hablaría','hablarías','hablaría','hablaríamos','hablaríais','hablarían'],
-    subjuntivo_presente:   ['hable','hables','hable','hablemos','habléis','hablen'],
-    subjuntivo_imperfecto: ['hablara','hablaras','hablara','habláramos','hablarais','hablaran'],
-    imperativo:            ['—','habla','hable','hablemos','hablad','hablen'],
-    imperativo_neg:        ['—','no hables','no hable','no hablemos','no habléis','no hablen'],
-  },
-  trabajar: {
-    label: 'travailler',
-    presente:              ['trabajo','trabajas','trabaja','trabajamos','trabajáis','trabajan'],
-    indefinido:            ['trabajé','trabajaste','trabajó','trabajamos','trabajasteis','trabajaron'],
-    imperfecto:            ['trabajaba','trabajabas','trabajaba','trabajábamos','trabajabais','trabajaban'],
-    perfecto:              ['he trabajado','has trabajado','ha trabajado','hemos trabajado','habéis trabajado','han trabajado'],
-    pluscuamperfecto:      ['había trabajado','habías trabajado','había trabajado','habíamos trabajado','habíais trabajado','habían trabajado'],
-    futuro:                ['trabajaré','trabajarás','trabajará','trabajaremos','trabajaréis','trabajarán'],
-    condicional:           ['trabajaría','trabajarías','trabajaría','trabajaríamos','trabajaríais','trabajarían'],
-    subjuntivo_presente:   ['trabaje','trabajes','trabaje','trabajemos','trabajéis','trabajen'],
-    subjuntivo_imperfecto: ['trabajara','trabajaras','trabajara','trabajáramos','trabajarais','trabajaran'],
-    imperativo:            ['—','trabaja','trabaje','trabajemos','trabajad','trabajen'],
-    imperativo_neg:        ['—','no trabajes','no trabaje','no trabajemos','no trabajéis','no trabajen'],
-  },
-  escuchar: {
-    label: 'écouter',
-    presente:              ['escucho','escuchas','escucha','escuchamos','escucháis','escuchan'],
-    indefinido:            ['escuché','escuchaste','escuchó','escuchamos','escuchasteis','escucharon'],
-    imperfecto:            ['escuchaba','escuchabas','escuchaba','escuchábamos','escuchabais','escuchaban'],
-    perfecto:              ['he escuchado','has escuchado','ha escuchado','hemos escuchado','habéis escuchado','han escuchado'],
-    pluscuamperfecto:      ['había escuchado','habías escuchado','había escuchado','habíamos escuchado','habíais escuchado','habían escuchado'],
-    futuro:                ['escucharé','escucharás','escuchará','escucharemos','escucharéis','escucharán'],
-    condicional:           ['escucharía','escucharías','escucharía','escucharíamos','escucharíais','escucharían'],
-    subjuntivo_presente:   ['escuche','escuches','escuche','escuchemos','escuchéis','escuchen'],
-    subjuntivo_imperfecto: ['escuchara','escucharas','escuchara','escucháramos','escucharais','escucharan'],
-    imperativo:            ['—','escucha','escuche','escuchemos','escuchad','escuchen'],
-    imperativo_neg:        ['—','no escuches','no escuche','no escuchemos','no escuchéis','no escuchen'],
-  },
-  caminar: {
-    label: 'marcher',
-    presente:              ['camino','caminas','camina','caminamos','camináis','caminan'],
-    indefinido:            ['caminé','caminaste','caminó','caminamos','caminasteis','caminaron'],
-    imperfecto:            ['caminaba','caminabas','caminaba','caminábamos','caminabais','caminaban'],
-    perfecto:              ['he caminado','has caminado','ha caminado','hemos caminado','habéis caminado','han caminado'],
-    pluscuamperfecto:      ['había caminado','habías caminado','había caminado','habíamos caminado','habíais caminado','habían caminado'],
-    futuro:                ['caminaré','caminarás','caminará','caminaremos','caminaréis','caminarán'],
-    condicional:           ['caminaría','caminarías','caminaría','caminaríamos','caminaríais','caminarían'],
-    subjuntivo_presente:   ['camine','camines','camine','caminemos','caminéis','caminen'],
-    subjuntivo_imperfecto: ['caminara','caminaras','caminara','camináramos','caminarais','caminaran'],
-    imperativo:            ['—','camina','camine','caminemos','caminad','caminen'],
-    imperativo_neg:        ['—','no camines','no camine','no caminemos','no caminéis','no caminen'],
-  },
-  comprar: {
-    label: 'acheter',
-    presente:              ['compro','compras','compra','compramos','compráis','compran'],
-    indefinido:            ['compré','compraste','compró','compramos','comprasteis','compraron'],
-    imperfecto:            ['compraba','comprabas','compraba','comprábamos','comprabais','compraban'],
-    perfecto:              ['he comprado','has comprado','ha comprado','hemos comprado','habéis comprado','han comprado'],
-    pluscuamperfecto:      ['había comprado','habías comprado','había comprado','habíamos comprado','habíais comprado','habían comprado'],
-    futuro:                ['compraré','comprarás','comprará','compraremos','compraréis','comprarán'],
-    condicional:           ['compraría','comprarías','compraría','compraríamos','compraríais','comprarían'],
-    subjuntivo_presente:   ['compre','compres','compre','compremos','compréis','compren'],
-    subjuntivo_imperfecto: ['comprara','compraras','comprara','compráramos','comprarais','compraran'],
-    imperativo:            ['—','compra','compre','compremos','comprad','compren'],
-    imperativo_neg:        ['—','no compres','no compre','no compremos','no compréis','no compren'],
-  },
-  llevar: {
-    label: 'porter / emmener',
-    presente:              ['llevo','llevas','lleva','llevamos','lleváis','llevan'],
-    indefinido:            ['llevé','llevaste','llevó','llevamos','llevasteis','llevaron'],
-    imperfecto:            ['llevaba','llevabas','llevaba','llevábamos','llevabais','llevaban'],
-    perfecto:              ['he llevado','has llevado','ha llevado','hemos llevado','habéis llevado','han llevado'],
-    pluscuamperfecto:      ['había llevado','habías llevado','había llevado','habíamos llevado','habíais llevado','habían llevado'],
-    futuro:                ['llevaré','llevarás','llevará','llevaremos','llevaréis','llevarán'],
-    condicional:           ['llevaría','llevarías','llevaría','llevaríamos','llevaríais','llevarían'],
-    subjuntivo_presente:   ['lleve','lleves','lleve','llevemos','llevéis','lleven'],
-    subjuntivo_imperfecto: ['llevara','llevaras','llevara','lleváramos','llevarais','llevaran'],
-    imperativo:            ['—','lleva','lleve','llevemos','llevad','lleven'],
-    imperativo_neg:        ['—','no lleves','no lleve','no llevemos','no llevéis','no lleven'],
-  },
-
-  // ═══ RÉGULIERS -ER ═══════════════════════════════════════════════════════
-
-  comer: {
-    label: 'manger',
-    presente:              ['como','comes','come','comemos','coméis','comen'],
-    indefinido:            ['comí','comiste','comió','comimos','comisteis','comieron'],
-    imperfecto:            ['comía','comías','comía','comíamos','comíais','comían'],
-    perfecto:              ['he comido','has comido','ha comido','hemos comido','habéis comido','han comido'],
-    pluscuamperfecto:      ['había comido','habías comido','había comido','habíamos comido','habíais comido','habían comido'],
-    futuro:                ['comeré','comerás','comerá','comeremos','comeréis','comerán'],
-    condicional:           ['comería','comerías','comería','comeríamos','comeríais','comerían'],
-    subjuntivo_presente:   ['coma','comas','coma','comamos','comáis','coman'],
-    subjuntivo_imperfecto: ['comiera','comieras','comiera','comiéramos','comierais','comieran'],
-    imperativo:            ['—','come','coma','comamos','comed','coman'],
-    imperativo_neg:        ['—','no comas','no coma','no comamos','no comáis','no coman'],
-  },
-  beber: {
-    label: 'boire',
-    presente:              ['bebo','bebes','bebe','bebemos','bebéis','beben'],
-    indefinido:            ['bebí','bebiste','bebió','bebimos','bebisteis','bebieron'],
-    imperfecto:            ['bebía','bebías','bebía','bebíamos','bebíais','bebían'],
-    perfecto:              ['he bebido','has bebido','ha bebido','hemos bebido','habéis bebido','han bebido'],
-    pluscuamperfecto:      ['había bebido','habías bebido','había bebido','habíamos bebido','habíais bebido','habían bebido'],
-    futuro:                ['beberé','beberás','beberá','beberemos','beberéis','beberán'],
-    condicional:           ['bebería','beberías','bebería','beberíamos','beberíais','beberían'],
-    subjuntivo_presente:   ['beba','bebas','beba','bebamos','bebáis','beban'],
-    subjuntivo_imperfecto: ['bebiera','bebieras','bebiera','bebiéramos','bebierais','bebieran'],
-    imperativo:            ['—','bebe','beba','bebamos','bebed','beban'],
-    imperativo_neg:        ['—','no bebas','no beba','no bebamos','no bebáis','no beban'],
-  },
-  correr: {
-    label: 'courir',
-    presente:              ['corro','corres','corre','corremos','corréis','corren'],
-    indefinido:            ['corrí','corriste','corrió','corrimos','corristeis','corrieron'],
-    imperfecto:            ['corría','corrías','corría','corríamos','corríais','corrían'],
-    perfecto:              ['he corrido','has corrido','ha corrido','hemos corrido','habéis corrido','han corrido'],
-    pluscuamperfecto:      ['había corrido','habías corrido','había corrido','habíamos corrido','habíais corrido','habían corrido'],
-    futuro:                ['correré','correrás','correrá','correremos','correréis','correrán'],
-    condicional:           ['correría','correrías','correría','correríamos','correríais','correrían'],
-    subjuntivo_presente:   ['corra','corras','corra','corramos','corráis','corran'],
-    subjuntivo_imperfecto: ['corriera','corrieras','corriera','corriéramos','corrierais','corrieran'],
-    imperativo:            ['—','corre','corra','corramos','corred','corran'],
-    imperativo_neg:        ['—','no corras','no corra','no corramos','no corráis','no corran'],
-  },
-  conocer: {
-    label: 'connaître',
-    presente:              ['conozco','conoces','conoce','conocemos','conocéis','conocen'],
-    indefinido:            ['conocí','conociste','conoció','conocimos','conocisteis','conocieron'],
-    imperfecto:            ['conocía','conocías','conocía','conocíamos','conocíais','conocían'],
-    perfecto:              ['he conocido','has conocido','ha conocido','hemos conocido','habéis conocido','han conocido'],
-    pluscuamperfecto:      ['había conocido','habías conocido','había conocido','habíamos conocido','habíais conocido','habían conocido'],
-    futuro:                ['conoceré','conocerás','conocerá','conoceremos','conoceréis','conocerán'],
-    condicional:           ['conocería','conocerías','conocería','conoceríamos','conoceríais','conocerían'],
-    subjuntivo_presente:   ['conozca','conozcas','conozca','conozcamos','conozcáis','conozcan'],
-    subjuntivo_imperfecto: ['conociera','conocieras','conociera','conociéramos','conocierais','conocieran'],
-    imperativo:            ['—','conoce','conozca','conozcamos','conoced','conozcan'],
-    imperativo_neg:        ['—','no conozcas','no conozca','no conozcamos','no conozcáis','no conozcan'],
-  },
-  leer: {
-    label: 'lire',
-    presente:              ['leo','lees','lee','leemos','leéis','leen'],
-    indefinido:            ['leí','leíste','leyó','leímos','leísteis','leyeron'],
-    imperfecto:            ['leía','leías','leía','leíamos','leíais','leían'],
-    perfecto:              ['he leído','has leído','ha leído','hemos leído','habéis leído','han leído'],
-    pluscuamperfecto:      ['había leído','habías leído','había leído','habíamos leído','habíais leído','habían leído'],
-    futuro:                ['leeré','leerás','leerá','leeremos','leeréis','leerán'],
-    condicional:           ['leería','leerías','leería','leeríamos','leeríais','leerían'],
-    subjuntivo_presente:   ['lea','leas','lea','leamos','leáis','lean'],
-    subjuntivo_imperfecto: ['leyera','leyeras','leyera','leyéramos','leyerais','leyeran'],
-    imperativo:            ['—','lee','lea','leamos','leed','lean'],
-    imperativo_neg:        ['—','no leas','no lea','no leamos','no leáis','no lean'],
-  },
-
-  // ═══ RÉGULIERS -IR ═══════════════════════════════════════════════════════
-
-  vivir: {
-    label: 'vivre',
-    presente:              ['vivo','vives','vive','vivimos','vivís','viven'],
-    indefinido:            ['viví','viviste','vivió','vivimos','vivisteis','vivieron'],
-    imperfecto:            ['vivía','vivías','vivía','vivíamos','vivíais','vivían'],
-    perfecto:              ['he vivido','has vivido','ha vivido','hemos vivido','habéis vivido','han vivido'],
-    pluscuamperfecto:      ['había vivido','habías vivido','había vivido','habíamos vivido','habíais vivido','habían vivido'],
-    futuro:                ['viviré','vivirás','vivirá','viviremos','viviréis','vivirán'],
-    condicional:           ['viviría','vivirías','viviría','viviríamos','viviríais','vivirían'],
-    subjuntivo_presente:   ['viva','vivas','viva','vivamos','viváis','vivan'],
-    subjuntivo_imperfecto: ['viviera','vivieras','viviera','viviéramos','vivierais','vivieran'],
-    imperativo:            ['—','vive','viva','vivamos','vivid','vivan'],
-    imperativo_neg:        ['—','no vivas','no viva','no vivamos','no viváis','no vivan'],
-  },
-  escribir: {
-    label: 'écrire',
-    presente:              ['escribo','escribes','escribe','escribimos','escribís','escriben'],
-    indefinido:            ['escribí','escribiste','escribió','escribimos','escribisteis','escribieron'],
-    imperfecto:            ['escribía','escribías','escribía','escribíamos','escribíais','escribían'],
-    perfecto:              ['he escrito','has escrito','ha escrito','hemos escrito','habéis escrito','han escrito'],
-    pluscuamperfecto:      ['había escrito','habías escrito','había escrito','habíamos escrito','habíais escrito','habían escrito'],
-    futuro:                ['escribiré','escribirás','escribirá','escribiremos','escribiréis','escribirán'],
-    condicional:           ['escribiría','escribirías','escribiría','escribiríamos','escribiríais','escribirían'],
-    subjuntivo_presente:   ['escriba','escribas','escriba','escribamos','escribáis','escriban'],
-    subjuntivo_imperfecto: ['escribiera','escribieras','escribiera','escribiéramos','escribierais','escribieran'],
-    imperativo:            ['—','escribe','escriba','escribamos','escribid','escriban'],
-    imperativo_neg:        ['—','no escribas','no escriba','no escribamos','no escribáis','no escriban'],
-  },
-  abrir: {
-    label: 'ouvrir',
-    presente:              ['abro','abres','abre','abrimos','abrís','abren'],
-    indefinido:            ['abrí','abriste','abrió','abrimos','abristeis','abrieron'],
-    imperfecto:            ['abría','abrías','abría','abríamos','abríais','abrían'],
-    perfecto:              ['he abierto','has abierto','ha abierto','hemos abierto','habéis abierto','han abierto'],
-    pluscuamperfecto:      ['había abierto','habías abierto','había abierto','habíamos abierto','habíais abierto','habían abierto'],
-    futuro:                ['abriré','abrirás','abrirá','abriremos','abriréis','abrirán'],
-    condicional:           ['abriría','abrirías','abriría','abriríamos','abriríais','abrirían'],
-    subjuntivo_presente:   ['abra','abras','abra','abramos','abráis','abran'],
-    subjuntivo_imperfecto: ['abriera','abrieras','abriera','abriéramos','abrierais','abrieran'],
-    imperativo:            ['—','abre','abra','abramos','abrid','abran'],
-    imperativo_neg:        ['—','no abras','no abra','no abramos','no abráis','no abran'],
-  },
-
-  // ═══ IRRÉGULIERS ═════════════════════════════════════════════════════════
-
-  ser: {
-    label: 'être (permanent)',
-    presente:              ['soy','eres','es','somos','sois','son'],
-    indefinido:            ['fui','fuiste','fue','fuimos','fuisteis','fueron'],
-    imperfecto:            ['era','eras','era','éramos','erais','eran'],
-    perfecto:              ['he sido','has sido','ha sido','hemos sido','habéis sido','han sido'],
-    pluscuamperfecto:      ['había sido','habías sido','había sido','habíamos sido','habíais sido','habían sido'],
-    futuro:                ['seré','serás','será','seremos','seréis','serán'],
-    condicional:           ['sería','serías','sería','seríamos','seríais','serían'],
-    subjuntivo_presente:   ['sea','seas','sea','seamos','seáis','sean'],
-    subjuntivo_imperfecto: ['fuera','fueras','fuera','fuéramos','fuerais','fueran'],
-    imperativo:            ['—','sé','sea','seamos','sed','sean'],
-    imperativo_neg:        ['—','no seas','no sea','no seamos','no seáis','no sean'],
-  },
-  estar: {
-    label: 'être (état/lieu)',
-    presente:              ['estoy','estás','está','estamos','estáis','están'],
-    indefinido:            ['estuve','estuviste','estuvo','estuvimos','estuvisteis','estuvieron'],
-    imperfecto:            ['estaba','estabas','estaba','estábamos','estabais','estaban'],
-    perfecto:              ['he estado','has estado','ha estado','hemos estado','habéis estado','han estado'],
-    pluscuamperfecto:      ['había estado','habías estado','había estado','habíamos estado','habíais estado','habían estado'],
-    futuro:                ['estaré','estarás','estará','estaremos','estaréis','estarán'],
-    condicional:           ['estaría','estarías','estaría','estaríamos','estaríais','estarían'],
-    subjuntivo_presente:   ['esté','estés','esté','estemos','estéis','estén'],
-    subjuntivo_imperfecto: ['estuviera','estuvieras','estuviera','estuviéramos','estuvierais','estuvieran'],
-    imperativo:            ['—','está','esté','estemos','estad','estén'],
-    imperativo_neg:        ['—','no estés','no esté','no estemos','no estéis','no estén'],
-  },
-  tener: {
-    label: 'avoir',
-    presente:              ['tengo','tienes','tiene','tenemos','tenéis','tienen'],
-    indefinido:            ['tuve','tuviste','tuvo','tuvimos','tuvisteis','tuvieron'],
-    imperfecto:            ['tenía','tenías','tenía','teníamos','teníais','tenían'],
-    perfecto:              ['he tenido','has tenido','ha tenido','hemos tenido','habéis tenido','han tenido'],
-    pluscuamperfecto:      ['había tenido','habías tenido','había tenido','habíamos tenido','habíais tenido','habían tenido'],
-    futuro:                ['tendré','tendrás','tendrá','tendremos','tendréis','tendrán'],
-    condicional:           ['tendría','tendrías','tendría','tendríamos','tendríais','tendrían'],
-    subjuntivo_presente:   ['tenga','tengas','tenga','tengamos','tengáis','tengan'],
-    subjuntivo_imperfecto: ['tuviera','tuvieras','tuviera','tuviéramos','tuvierais','tuvieran'],
-    imperativo:            ['—','ten','tenga','tengamos','tened','tengan'],
-    imperativo_neg:        ['—','no tengas','no tenga','no tengamos','no tengáis','no tengan'],
-  },
-  ir: {
-    label: 'aller',
-    presente:              ['voy','vas','va','vamos','vais','van'],
-    indefinido:            ['fui','fuiste','fue','fuimos','fuisteis','fueron'],
-    imperfecto:            ['iba','ibas','iba','íbamos','ibais','iban'],
-    perfecto:              ['he ido','has ido','ha ido','hemos ido','habéis ido','han ido'],
-    pluscuamperfecto:      ['había ido','habías ido','había ido','habíamos ido','habíais ido','habían ido'],
-    futuro:                ['iré','irás','irá','iremos','iréis','irán'],
-    condicional:           ['iría','irías','iría','iríamos','iríais','irían'],
-    subjuntivo_presente:   ['vaya','vayas','vaya','vayamos','vayáis','vayan'],
-    subjuntivo_imperfecto: ['fuera','fueras','fuera','fuéramos','fuerais','fueran'],
-    imperativo:            ['—','ve','vaya','vayamos','id','vayan'],
-    imperativo_neg:        ['—','no vayas','no vaya','no vayamos','no vayáis','no vayan'],
-  },
-  hacer: {
-    label: 'faire',
-    presente:              ['hago','haces','hace','hacemos','hacéis','hacen'],
-    indefinido:            ['hice','hiciste','hizo','hicimos','hicisteis','hicieron'],
-    imperfecto:            ['hacía','hacías','hacía','hacíamos','hacíais','hacían'],
-    perfecto:              ['he hecho','has hecho','ha hecho','hemos hecho','habéis hecho','han hecho'],
-    pluscuamperfecto:      ['había hecho','habías hecho','había hecho','habíamos hecho','habíais hecho','habían hecho'],
-    futuro:                ['haré','harás','hará','haremos','haréis','harán'],
-    condicional:           ['haría','harías','haría','haríamos','haríais','harían'],
-    subjuntivo_presente:   ['haga','hagas','haga','hagamos','hagáis','hagan'],
-    subjuntivo_imperfecto: ['hiciera','hicieras','hiciera','hiciéramos','hicierais','hicieran'],
-    imperativo:            ['—','haz','haga','hagamos','haced','hagan'],
-    imperativo_neg:        ['—','no hagas','no haga','no hagamos','no hagáis','no hagan'],
-  },
-  poder: {
-    label: 'pouvoir',
-    presente:              ['puedo','puedes','puede','podemos','podéis','pueden'],
-    indefinido:            ['pude','pudiste','pudo','pudimos','pudisteis','pudieron'],
-    imperfecto:            ['podía','podías','podía','podíamos','podíais','podían'],
-    perfecto:              ['he podido','has podido','ha podido','hemos podido','habéis podido','han podido'],
-    pluscuamperfecto:      ['había podido','habías podido','había podido','habíamos podido','habíais podido','habían podido'],
-    futuro:                ['podré','podrás','podrá','podremos','podréis','podrán'],
-    condicional:           ['podría','podrías','podría','podríamos','podríais','podrían'],
-    subjuntivo_presente:   ['pueda','puedas','pueda','podamos','podáis','puedan'],
-    subjuntivo_imperfecto: ['pudiera','pudieras','pudiera','pudiéramos','pudierais','pudieran'],
-    imperativo:            ['—','puede','pueda','podamos','poded','puedan'],
-    imperativo_neg:        ['—','no puedas','no pueda','no podamos','no podáis','no puedan'],
-  },
-  querer: {
-    label: 'vouloir / aimer',
-    presente:              ['quiero','quieres','quiere','queremos','queréis','quieren'],
-    indefinido:            ['quise','quisiste','quiso','quisimos','quisisteis','quisieron'],
-    imperfecto:            ['quería','querías','quería','queríamos','queríais','querían'],
-    perfecto:              ['he querido','has querido','ha querido','hemos querido','habéis querido','han querido'],
-    pluscuamperfecto:      ['había querido','habías querido','había querido','habíamos querido','habíais querido','habían querido'],
-    futuro:                ['querré','querrás','querrá','querremos','querréis','querrán'],
-    condicional:           ['querría','querrías','querría','querríamos','querríais','querrían'],
-    subjuntivo_presente:   ['quiera','quieras','quiera','queramos','queráis','quieran'],
-    subjuntivo_imperfecto: ['quisiera','quisieras','quisiera','quisiéramos','quisierais','quisieran'],
-    imperativo:            ['—','quiere','quiera','queramos','quered','quieran'],
-    imperativo_neg:        ['—','no quieras','no quiera','no queramos','no queráis','no quieran'],
-  },
-  decir: {
-    label: 'dire',
-    presente:              ['digo','dices','dice','decimos','decís','dicen'],
-    indefinido:            ['dije','dijiste','dijo','dijimos','dijisteis','dijeron'],
-    imperfecto:            ['decía','decías','decía','decíamos','decíais','decían'],
-    perfecto:              ['he dicho','has dicho','ha dicho','hemos dicho','habéis dicho','han dicho'],
-    pluscuamperfecto:      ['había dicho','habías dicho','había dicho','habíamos dicho','habíais dicho','habían dicho'],
-    futuro:                ['diré','dirás','dirá','diremos','diréis','dirán'],
-    condicional:           ['diría','dirías','diría','diríamos','diríais','dirían'],
-    subjuntivo_presente:   ['diga','digas','diga','digamos','digáis','digan'],
-    subjuntivo_imperfecto: ['dijera','dijeras','dijera','dijéramos','dijerais','dijeran'],
-    imperativo:            ['—','di','diga','digamos','decid','digan'],
-    imperativo_neg:        ['—','no digas','no diga','no digamos','no digáis','no digan'],
-  },
-  saber: {
-    label: 'savoir',
-    presente:              ['sé','sabes','sabe','sabemos','sabéis','saben'],
-    indefinido:            ['supe','supiste','supo','supimos','supisteis','supieron'],
-    imperfecto:            ['sabía','sabías','sabía','sabíamos','sabíais','sabían'],
-    perfecto:              ['he sabido','has sabido','ha sabido','hemos sabido','habéis sabido','han sabido'],
-    pluscuamperfecto:      ['había sabido','habías sabido','había sabido','habíamos sabido','habíais sabido','habían sabido'],
-    futuro:                ['sabré','sabrás','sabrá','sabremos','sabréis','sabrán'],
-    condicional:           ['sabría','sabrías','sabría','sabríamos','sabríais','sabrían'],
-    subjuntivo_presente:   ['sepa','sepas','sepa','sepamos','sepáis','sepan'],
-    subjuntivo_imperfecto: ['supiera','supieras','supiera','supiéramos','supierais','supieran'],
-    imperativo:            ['—','sabe','sepa','sepamos','sabed','sepan'],
-    imperativo_neg:        ['—','no sepas','no sepa','no sepamos','no sepáis','no sepan'],
-  },
-  poner: {
-    label: 'mettre / poser',
-    presente:              ['pongo','pones','pone','ponemos','ponéis','ponen'],
-    indefinido:            ['puse','pusiste','puso','pusimos','pusisteis','pusieron'],
-    imperfecto:            ['ponía','ponías','ponía','poníamos','poníais','ponían'],
-    perfecto:              ['he puesto','has puesto','ha puesto','hemos puesto','habéis puesto','han puesto'],
-    pluscuamperfecto:      ['había puesto','habías puesto','había puesto','habíamos puesto','habíais puesto','habían puesto'],
-    futuro:                ['pondré','pondrás','pondrá','pondremos','pondréis','pondrán'],
-    condicional:           ['pondría','pondrías','pondría','pondríamos','pondríais','pondrían'],
-    subjuntivo_presente:   ['ponga','pongas','ponga','pongamos','pongáis','pongan'],
-    subjuntivo_imperfecto: ['pusiera','pusieras','pusiera','pusiéramos','pusierais','pusieran'],
-    imperativo:            ['—','pon','ponga','pongamos','poned','pongan'],
-    imperativo_neg:        ['—','no pongas','no ponga','no pongamos','no pongáis','no pongan'],
-  },
-  venir: {
-    label: 'venir',
-    presente:              ['vengo','vienes','viene','venimos','venís','vienen'],
-    indefinido:            ['vine','viniste','vino','vinimos','vinisteis','vinieron'],
-    imperfecto:            ['venía','venías','venía','veníamos','veníais','venían'],
-    perfecto:              ['he venido','has venido','ha venido','hemos venido','habéis venido','han venido'],
-    pluscuamperfecto:      ['había venido','habías venido','había venido','habíamos venido','habíais venido','habían venido'],
-    futuro:                ['vendré','vendrás','vendrá','vendremos','vendréis','vendrán'],
-    condicional:           ['vendría','vendrías','vendría','vendríamos','vendríais','vendrían'],
-    subjuntivo_presente:   ['venga','vengas','venga','vengamos','vengáis','vengan'],
-    subjuntivo_imperfecto: ['viniera','vinieras','viniera','viniéramos','vinierais','vinieran'],
-    imperativo:            ['—','ven','venga','vengamos','venid','vengan'],
-    imperativo_neg:        ['—','no vengas','no venga','no vengamos','no vengáis','no vengan'],
-  },
-  ver: {
-    label: 'voir',
-    presente:              ['veo','ves','ve','vemos','veis','ven'],
-    indefinido:            ['vi','viste','vio','vimos','visteis','vieron'],
-    imperfecto:            ['veía','veías','veía','veíamos','veíais','veían'],
-    perfecto:              ['he visto','has visto','ha visto','hemos visto','habéis visto','han visto'],
-    pluscuamperfecto:      ['había visto','habías visto','había visto','habíamos visto','habíais visto','habían visto'],
-    futuro:                ['veré','verás','verá','veremos','veréis','verán'],
-    condicional:           ['vería','verías','vería','veríamos','veríais','verían'],
-    subjuntivo_presente:   ['vea','veas','vea','veamos','veáis','vean'],
-    subjuntivo_imperfecto: ['viera','vieras','viera','viéramos','vierais','vieran'],
-    imperativo:            ['—','ve','vea','veamos','ved','vean'],
-    imperativo_neg:        ['—','no veas','no vea','no veamos','no veáis','no vean'],
-  },
-  dar: {
-    label: 'donner',
-    presente:              ['doy','das','da','damos','dais','dan'],
-    indefinido:            ['di','diste','dio','dimos','disteis','dieron'],
-    imperfecto:            ['daba','dabas','daba','dábamos','dabais','daban'],
-    perfecto:              ['he dado','has dado','ha dado','hemos dado','habéis dado','han dado'],
-    pluscuamperfecto:      ['había dado','habías dado','había dado','habíamos dado','habíais dado','habían dado'],
-    futuro:                ['daré','darás','dará','daremos','daréis','darán'],
-    condicional:           ['daría','darías','daría','daríamos','daríais','darían'],
-    subjuntivo_presente:   ['dé','des','dé','demos','deis','den'],
-    subjuntivo_imperfecto: ['diera','dieras','diera','diéramos','dierais','dieran'],
-    imperativo:            ['—','da','dé','demos','dad','den'],
-    imperativo_neg:        ['—','no des','no dé','no demos','no deis','no den'],
-  },
-  salir: {
-    label: 'sortir',
-    presente:              ['salgo','sales','sale','salimos','salís','salen'],
-    indefinido:            ['salí','saliste','salió','salimos','salisteis','salieron'],
-    imperfecto:            ['salía','salías','salía','salíamos','salíais','salían'],
-    perfecto:              ['he salido','has salido','ha salido','hemos salido','habéis salido','han salido'],
-    pluscuamperfecto:      ['había salido','habías salido','había salido','habíamos salido','habíais salido','habían salido'],
-    futuro:                ['saldré','saldrás','saldrá','saldremos','saldréis','saldrán'],
-    condicional:           ['saldría','saldrías','saldría','saldríamos','saldríais','saldrían'],
-    subjuntivo_presente:   ['salga','salgas','salga','salgamos','salgáis','salgan'],
-    subjuntivo_imperfecto: ['saliera','salieras','saliera','saliéramos','salierais','salieran'],
-    imperativo:            ['—','sal','salga','salgamos','salid','salgan'],
-    imperativo_neg:        ['—','no salgas','no salga','no salgamos','no salgáis','no salgan'],
-  },
-  dormir: {
-    label: 'dormir',
-    presente:              ['duermo','duermes','duerme','dormimos','dormís','duermen'],
-    indefinido:            ['dormí','dormiste','durmió','dormimos','dormisteis','durmieron'],
-    imperfecto:            ['dormía','dormías','dormía','dormíamos','dormíais','dormían'],
-    perfecto:              ['he dormido','has dormido','ha dormido','hemos dormido','habéis dormido','han dormido'],
-    pluscuamperfecto:      ['había dormido','habías dormido','había dormido','habíamos dormido','habíais dormido','habían dormido'],
-    futuro:                ['dormiré','dormirás','dormirá','dormiremos','dormiréis','dormirán'],
-    condicional:           ['dormiría','dormirías','dormiría','dormiríamos','dormiríais','dormirían'],
-    subjuntivo_presente:   ['duerma','duermas','duerma','durmamos','durmáis','duerman'],
-    subjuntivo_imperfecto: ['durmiera','durmieras','durmiera','durmiéramos','durmierais','durmieran'],
-    imperativo:            ['—','duerme','duerma','durmamos','dormid','duerman'],
-    imperativo_neg:        ['—','no duermas','no duerma','no durmamos','no durmáis','no duerman'],
-  },
-  jugar: {
-    label: 'jouer',
-    presente:              ['juego','juegas','juega','jugamos','jugáis','juegan'],
-    indefinido:            ['jugué','jugaste','jugó','jugamos','jugasteis','jugaron'],
-    imperfecto:            ['jugaba','jugabas','jugaba','jugábamos','jugabais','jugaban'],
-    perfecto:              ['he jugado','has jugado','ha jugado','hemos jugado','habéis jugado','han jugado'],
-    pluscuamperfecto:      ['había jugado','habías jugado','había jugado','habíamos jugado','habíais jugado','habían jugado'],
-    futuro:                ['jugaré','jugarás','jugará','jugaremos','jugaréis','jugarán'],
-    condicional:           ['jugaría','jugarías','jugaría','jugaríamos','jugaríais','jugarían'],
-    subjuntivo_presente:   ['juegue','juegues','juegue','juguemos','juguéis','jueguen'],
-    subjuntivo_imperfecto: ['jugara','jugaras','jugara','jugáramos','jugarais','jugaran'],
-    imperativo:            ['—','juega','juegue','juguemos','jugad','jueguen'],
-    imperativo_neg:        ['—','no juegues','no juegue','no juguemos','no juguéis','no jueguen'],
-  },
-  pensar: {
-    label: 'penser',
-    presente:              ['pienso','piensas','piensa','pensamos','pensáis','piensan'],
-    indefinido:            ['pensé','pensaste','pensó','pensamos','pensasteis','pensaron'],
-    imperfecto:            ['pensaba','pensabas','pensaba','pensábamos','pensabais','pensaban'],
-    perfecto:              ['he pensado','has pensado','ha pensado','hemos pensado','habéis pensado','han pensado'],
-    pluscuamperfecto:      ['había pensado','habías pensado','había pensado','habíamos pensado','habíais pensado','habían pensado'],
-    futuro:                ['pensaré','pensarás','pensará','pensaremos','pensaréis','pensarán'],
-    condicional:           ['pensaría','pensarías','pensaría','pensaríamos','pensaríais','pensarían'],
-    subjuntivo_presente:   ['piense','pienses','piense','pensemos','penséis','piensen'],
-    subjuntivo_imperfecto: ['pensara','pensaras','pensara','pensáramos','pensarais','pensaran'],
-    imperativo:            ['—','piensa','piense','pensemos','pensad','piensen'],
-    imperativo_neg:        ['—','no pienses','no piense','no pensemos','no penséis','no piensen'],
-  },
-  volver: {
-    label: 'retourner / revenir',
-    presente:              ['vuelvo','vuelves','vuelve','volvemos','volvéis','vuelven'],
-    indefinido:            ['volví','volviste','volvió','volvimos','volvisteis','volvieron'],
-    imperfecto:            ['volvía','volvías','volvía','volvíamos','volvíais','volvían'],
-    perfecto:              ['he vuelto','has vuelto','ha vuelto','hemos vuelto','habéis vuelto','han vuelto'],
-    pluscuamperfecto:      ['había vuelto','habías vuelto','había vuelto','habíamos vuelto','habíais vuelto','habían vuelto'],
-    futuro:                ['volveré','volverás','volverá','volveremos','volveréis','volverán'],
-    condicional:           ['volvería','volverías','volvería','volveríamos','volveríais','volverían'],
-    subjuntivo_presente:   ['vuelva','vuelvas','vuelva','volvamos','volváis','vuelvan'],
-    subjuntivo_imperfecto: ['volviera','volvieras','volviera','volviéramos','volvierais','volvieran'],
-    imperativo:            ['—','vuelve','vuelva','volvamos','volved','vuelvan'],
-    imperativo_neg:        ['—','no vuelvas','no vuelva','no volvamos','no volváis','no vuelvan'],
-  },
-};
-
-// ─── GENERATE CARDS FROM VERBS ───────────────────────────────────────────────
-// Note: pour l'impératif, yo (index 0) = '—', pas de carte générée
-function generateCards() {
-  const cards = [];
-  let id = 1;
-  for (const [verb, data] of Object.entries(VERBS)) {
-    // Générer le subjonctif passé depuis le participe passé (extrait du perfecto)
-    // "he hablado" → "hablado"
-    const participio = data.perfecto ? data.perfecto[0].split(' ')[1] : null;
-    if (participio) {
-      data.subjuntivo_pasado = HABER_SUBJ.map(aux => `${aux} ${participio}`);
-    }
-
-    for (const [tense, forms] of Object.entries(data)) {
-      if (tense === 'label') continue;
-      const isImperativo = tense === 'imperativo' || tense === 'imperativo_neg';
-      forms.forEach((answer, i) => {
-        if (answer === '—') return;
-        if (isImperativo && i === 0) return;
-        cards.push({
-          id: id++,
-          verb,
-          verbLabel: data.label,
-          tense,
-          tenseLabel: TENSE_LABELS[tense] || tense,
-          pronoun: PRONOUNS[i],
-          answer,
-        });
+  // Sync depuis Supabase si configuré
+  const baseSettings = loadSettings();
+  if (baseSettings.supabaseUrl && baseSettings.supabaseKey) {
+    const remote = await syncProfilesWithSupabase(baseSettings);
+    if (remote && remote.length > 0) {
+      // Merge : ajouter les profils distants manquants en local
+      remote.forEach(r => {
+        if (!profiles.find(p => p.id === r.id)) {
+          profiles.push({ id: r.id, name: r.name, avatar: r.avatar || '🧑', createdAt: r.created_at });
+        }
       });
+      saveProfiles(profiles);
     }
   }
-  return cards;
+
+  renderProfileGrid(profiles);
 }
 
-const ALL_CARDS = generateCards();
+function renderProfileGrid(profiles) {
+  const grid = document.getElementById('profiles-grid');
+  grid.innerHTML = profiles.map(p => `
+    <div class="profile-card" onclick="selectProfile('${p.id}')">
+      <button class="profile-delete-btn" onclick="deleteProfile(event,'${p.id}')">✕</button>
+      <div class="profile-avatar">${p.avatar}</div>
+      <div class="profile-name">${p.name}</div>
+    </div>`).join('') + (profiles.length < 4 ? `
+    <div class="profile-card profile-card-add" onclick="showAddProfile()">
+      <div class="profile-avatar">+</div>
+      <div class="profile-name" style="color:var(--text3)">Ajouter</div>
+    </div>` : '');
+}
+
+async function selectProfile(id) {
+  const profiles = loadProfiles();
+  const profile = profiles.find(p => p.id === id);
+  if (!profile) return;
+
+  activeProfile = profile;
+  saveActiveProfileId(id);
+
+  // Mettre à jour settings avec le userId du profil
+  settings = loadSettings();
+  settings.userId = id;
+  saveSettings(settings);
+
+  // Charger state et cardStats pour ce profil depuis localStorage
+  state     = JSON.parse(localStorage.getItem('conjugaison_sm2_' + id) || '{}');
+  cardStats = JSON.parse(localStorage.getItem('conjugaison_cardstats_' + id) || '{}');
+
+  // Mettre à jour le topbar
+  document.querySelector('.topbar').style.display = '';
+  updateTopbarProfile(profile);
+
+  await renderHome();
+}
+
+function updateTopbarProfile(profile) {
+  const brand = document.getElementById('topbar-brand');
+  if (brand) brand.textContent = profile.avatar + ' ' + profile.name;
+}
+
+function showProfilePicker() {
+  renderProfileScreen();
+}
+
+function showAddProfile() {
+  // Créer le modal inline
+  const overlay = document.createElement('div');
+  overlay.className = 'profile-modal-overlay';
+  overlay.id = 'profile-modal';
+
+  let selectedAvatar = AVATARS[0];
+
+  overlay.innerHTML = `
+    <div class="profile-modal">
+      <h3>Nouveau profil</h3>
+      <div class="avatar-picker">
+        ${AVATARS.map((a, i) => `
+          <button class="avatar-opt${i === 0 ? ' selected' : ''}" onclick="selectAvatar(this,'${a}')">${a}</button>
+        `).join('')}
+      </div>
+      <label class="input-label">Prénom</label>
+      <input type="text" id="new-profile-name" class="text-input" placeholder="ex: Léo" maxlength="20"
+        style="margin-bottom:1rem" autocomplete="off" />
+      <div style="display:flex;gap:0.6rem">
+        <button class="btn" style="flex:1" onclick="closeAddProfile()">Annuler</button>
+        <button class="btn btn-primary" style="flex:1" onclick="confirmAddProfile()">Créer</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.getElementById('new-profile-name').focus();
+}
+
+function selectAvatar(btn, avatar) {
+  document.querySelectorAll('.avatar-opt').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function closeAddProfile() {
+  document.getElementById('profile-modal')?.remove();
+}
+
+async function confirmAddProfile() {
+  const name = document.getElementById('new-profile-name')?.value.trim();
+  if (!name) return;
+  const avatarBtn = document.querySelector('.avatar-opt.selected');
+  const avatar = avatarBtn ? avatarBtn.textContent : '🧑';
+
+  const profile = { id: generateProfileId(), name, avatar, createdAt: Date.now() };
+  const profiles = loadProfiles();
+  profiles.push(profile);
+  saveProfiles(profiles);
+
+  // Sync Supabase
+  const baseSettings = loadSettings();
+  await saveProfileToSupabase(profile, baseSettings);
+
+  closeAddProfile();
+  renderProfileGrid(profiles);
+}
+
+async function deleteProfile(e, id) {
+  e.stopPropagation();
+  const profiles = loadProfiles();
+  const profile = profiles.find(p => p.id === id);
+  if (!profile) return;
+  if (!confirm(`Supprimer le profil "${profile.name}" ? Sa progression sera perdue.`)) return;
+
+  const newProfiles = profiles.filter(p => p.id !== id);
+  saveProfiles(newProfiles);
+
+  // Nettoyer localStorage
+  localStorage.removeItem('conjugaison_sm2_' + id);
+  localStorage.removeItem('conjugaison_cardstats_' + id);
+
+  // Sync Supabase
+  const baseSettings = loadSettings();
+  await deleteProfileFromSupabase(id, baseSettings);
+
+  renderProfileGrid(newProfiles);
+}
+
+// ─── SCREEN ROUTING ──────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + id);
+  if (el) el.classList.add('active');
+}
+
+// ─── HOME ─────────────────────────────────────────────────────────────────────
+async function renderHome() {
+  const remote = await supabasePull(settings);
+  if (remote) {
+    // Merge remote dans state : remote gagne sauf si local est plus récent
+    Object.entries(remote).forEach(([id, s]) => {
+      const local = state[id];
+      // Prendre la version la plus récente (lastReviewed plus grand)
+      if (!local || (s.lastReviewed || 0) >= (local.lastReviewed || 0)) {
+        state[id] = s;
+      }
+    });
+    saveState(state);
+  }
+  const remoteStats = await supabaseStatsPull(settings);
+  if (remoteStats) {
+    Object.entries(remoteStats).forEach(([id, s]) => {
+      const local = cardStats[id];
+      if (!local) { cardStats[id] = s; return; }
+      cardStats[id] = {
+        correct:  Math.max(local.correct  || 0, s.correct  || 0),
+        wrong:    Math.max(local.wrong    || 0, s.wrong    || 0),
+        btn_fail: Math.max(local.btn_fail || 0, s.btn_fail || 0),
+        btn_hard: Math.max(local.btn_hard || 0, s.btn_hard || 0),
+        btn_good: Math.max(local.btn_good || 0, s.btn_good || 0),
+        btn_easy: Math.max(local.btn_easy || 0, s.btn_easy || 0),
+        last_seen: Math.max(local.last_seen || 0, s.last_seen || 0),
+      };
+    });
+    saveCardStats(cardStats);
+  }
+
+  // Initialiser uniquement les cartes actives qui n'ont PAS encore d'état
+  // Ne jamais écraser un état existant
+  getActiveCards(settings).forEach(c => {
+    if (!state[c.id]) {
+      state[c.id] = { interval:1, easeFactor:2.5, repetitions:0, nextReview:null, lastReviewed:null };
+    }
+  });
+
+  const stats = getStats(state, settings);
+  setText('stat-due',      stats.due);
+  setText('stat-learning', stats.learning);
+  setText('stat-mastered', stats.mastered);
+  setText('stat-total',    stats.total);
+  const btn = document.getElementById('btn-study');
+  const newAvailable = getNewCards(state, settings).length;
+  const canStudy = stats.due > 0 || newAvailable > 0;
+  btn.disabled = !canStudy;
+  btn.textContent = stats.due > 0
+    ? `Réviser (${stats.due} carte${stats.due > 1 ? 's' : ''})`
+    : newAvailable > 0
+    ? `Nouvelles cartes (${Math.min(20, newAvailable)})`
+    : 'Aucune carte à réviser';
+  showScreen('home');
+}
+
+// ─── STUDY SESSION ────────────────────────────────────────────────────────────
+function startSession() {
+  const due = getDueCards(state, settings).sort(() => Math.random() - 0.5);
+  // Introduire jusqu'à 20 nouvelles cartes — mélangées pour varier les verbes
+  const newCards = getNewCards(state, settings).sort(() => Math.random() - 0.5);
+  const newToIntroduce = newCards.slice(0, Math.max(0, 20 - due.length));
+  // Marquer les nouvelles cartes comme "en cours d'introduction" (nextReview = now)
+  newToIntroduce.forEach(c => {
+    state[c.id].nextReview = now();
+  });
+  queue     = [...due, ...newToIntroduce].sort(() => Math.random() - 0.5);
+  failQueue = [];
+  if (queue.length === 0) { renderHome(); return; }
+  sessionCorrect = 0;
+  sessionTotal   = queue.length;
+  showScreen('study');
+  renderNextCard();
+}
+
+function renderNextCard() {
+  if (queue.length === 0) {
+    if (failQueue.length > 0) {
+      // Cartes en attente — afficher un message d'attente
+      setText('card-tense', 'EN ATTENTE');
+      setText('card-main', '⏱');
+      setText('card-pronoun', `${failQueue.length} carte${failQueue.length > 1 ? 's' : ''} reviennent dans ~5 min`);
+      setText('card-meaning', '');
+      hide('btn-check');
+      hide('feedback');
+      document.getElementById('special-keys-study').innerHTML = '';
+    } else {
+      renderDone();
+    }
+    return;
+  }
+
+  current = queue[0];
+  const remaining = queue.length + failQueue.length;
+  const done = sessionTotal - remaining;
+  document.getElementById('progress-fill').style.width = Math.round((done / sessionTotal) * 100) + '%';
+  setText('study-counter', `${remaining} restante${remaining > 1 ? 's' : ''}`);
+
+  setText('card-tense',   current.tenseLabel.toUpperCase());
+  setText('card-main',    current.verb);
+  setText('card-pronoun', current.pronoun);
+  setText('card-meaning', current.verbLabel);
+
+  const inp = document.getElementById('answer-input');
+  inp.value = '';
+  inp.className = 'answer-input';
+  inp.disabled = false;
+  inp.focus();
+
+  // Clavier caractères spéciaux
+  document.getElementById('special-keys-study').innerHTML = buildSpecialKeyboard('answer-input');
+
+  hide('feedback');
+  show('btn-check');
+  setText('next-review-hint', '');
+}
+
+function checkAnswer() {
+  if (!current) return;
+  const inp   = document.getElementById('answer-input');
+  const typed = inp.value;
+  if (!typed.trim()) return;
+
+  const strict  = settings.accentStrict;
+  const correct = normalizeAnswer(current.answer, strict);
+  const given   = normalizeAnswer(typed, strict);
+  const isOk    = given === correct;
+
+  inp.disabled = true;
+  inp.className = 'answer-input ' + (isOk ? 'correct' : 'wrong');
+  if (isOk) sessionCorrect++;
+
+  const fb = document.getElementById('feedback');
+  fb.innerHTML = '';
+
+  if (isOk) {
+    fb.innerHTML = `
+      <div class="feedback-correct">
+        <div class="fb-label ok">Correct ✓</div>
+        <div class="fb-answer ok">${current.answer}</div>
+      </div>`;
+  } else {
+    fb.innerHTML = `
+      <div class="feedback-wrong-panel">
+        <div class="fb-label bad">Bonne réponse</div>
+        <div class="fb-answer" style="color:var(--correct)">${current.answer}</div>
+        <div style="margin-top:0.3rem;font-size:0.82rem;color:var(--text3)">Ta réponse : <span style="color:var(--wrong)">${typed || '—'}</span></div>
+      </div>`;
+  }
+
+  // Conjugaison complète — toujours affichée
+  const conjugaison = getFullConjugation(current);
+  if (conjugaison) {
+    const rows = conjugaison.map(({pronoun, form}) =>
+      `<tr><td style="color:var(--text3);padding:3px 12px 3px 0;font-size:0.82rem">${pronoun}</td><td style="font-family:var(--font-display);font-style:italic;font-size:0.9rem;color:${form === current.answer ? 'var(--accent)' : 'var(--text)'}">${form}</td></tr>`
+    ).join('');
+    const box = document.createElement('div');
+    box.className = 'ai-box';
+    box.innerHTML = `
+      <div class="ai-box-header"><div class="ai-dot"></div>${current.verb} — ${current.tenseLabel}</div>
+      <table style="border-collapse:collapse;width:100%">${rows}</table>`;
+    fb.appendChild(box);
+  }
+
+  // 4 boutons de notation
+  const ratingDiv = document.createElement('div');
+  ratingDiv.innerHTML = `
+    <div class="rating-label">Comment c'était ?</div>
+    <div class="rating-grid-4">
+      <button class="rating-btn r-fail" onclick="rate(1)">Échec<span class="rating-sub">→ 5 min</span></button>
+      <button class="rating-btn r-hard" onclick="rate(2)">Difficile<span class="rating-sub">→ demain</span></button>
+      <button class="rating-btn r-ok"   onclick="rate(4)">Bon<span class="rating-sub">→ normal</span></button>
+      <button class="rating-btn r-easy" onclick="rate(5)">Facile<span class="rating-sub">→ allongé</span></button>
+    </div>
+    <div class="next-review-hint" id="next-review-hint"></div>`;
+  fb.appendChild(ratingDiv);
+
+  show('feedback');
+  hide('btn-check');
+}
+
+function rate(q) {
+  if (!current) return;
+  const inp = document.getElementById('answer-input');
+  const isCorrect = inp.className.includes('correct');
+
+  const updated = sm2Update(state[current.id], q);
+  state[current.id] = { ...state[current.id], ...updated };
+
+  // Sauvegarde locale par profil
+  const profileKey = activeProfile ? 'conjugaison_sm2_' + activeProfile.id : STORAGE_KEY;
+  try { localStorage.setItem(profileKey, JSON.stringify(state)); } catch {}
+
+  // Stats par carte
+  cardStats = recordCardResult(current.id, isCorrect, q, cardStats);
+  const statsKey = activeProfile ? 'conjugaison_cardstats_' + activeProfile.id : CARDSTATS_KEY;
+  try { localStorage.setItem(statsKey, JSON.stringify(cardStats)); } catch {}
+
+  // Sync Supabase
+  supabasePush(state, settings);
+  supabaseStatsPush(cardStats, settings);
+
+  setText('next-review-hint', 'Prochaine révision : ' + formatNextReview(updated.nextReview));
+  document.querySelectorAll('.rating-btn').forEach(b => b.disabled = true);
+
+  const card = queue.shift();
+  if (q === 1) {
+    failQueue.push(card);
+    // Réinjecter après 5 min réelles (en mémoire, indépendant de nextReview)
+    setTimeout(() => {
+      const idx = failQueue.indexOf(card);
+      if (idx !== -1) {
+        failQueue.splice(idx, 1);
+        queue.push(card);
+        // Si la queue était vide, relancer l'affichage
+        if (queue.length === 1) renderNextCard();
+      }
+    }, 5 * 60 * 1000);
+  }
+
+  setTimeout(() => renderNextCard(), 800);
+}
+
+// ─── DONE ─────────────────────────────────────────────────────────────────────
+function renderDone() {
+  const pct = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0;
+  setText('done-score', pct + '%');
+  setText('done-correct', `${sessionCorrect} / ${sessionTotal} correctes`);
+  document.getElementById('btn-done-home').textContent = 'Retour à l\'accueil';
+  showScreen('done');
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────────────────────
+function renderSettings() {
+  Object.keys(TENSE_LABELS).forEach(t => {
+    const cb = document.getElementById('tense-' + t);
+    if (cb) { cb.checked = !!settings.tenses[t]; syncCheckbox(cb); }
+  });
+  const el = (id) => document.getElementById(id);
+  if (el('toggle-accent'))    el('toggle-accent').checked    = !!settings.accentStrict;
+  if (el('openrouter-key'))   el('openrouter-key').value     = settings.openrouterKey || '';
+  if (el('supabase-url'))     el('supabase-url').value       = settings.supabaseUrl   || '';
+  if (el('supabase-key'))     el('supabase-key').value       = settings.supabaseKey   || '';
+  if (el('supabase-user'))    el('supabase-user').value      = settings.userId        || '';
+  showScreen('settings');
+}
+
+function saveSettingsFromUI() {
+  Object.keys(TENSE_LABELS).forEach(t => {
+    const cb = document.getElementById('tense-' + t);
+    if (cb) settings.tenses[t] = cb.checked;
+  });
+  const anyTense = Object.values(settings.tenses).some(Boolean);
+  if (!anyTense) settings.tenses.presente = true;
+  const val = (id) => (document.getElementById(id)?.value || '').trim();
+  settings.accentStrict  = document.getElementById('toggle-accent')?.checked ?? false;
+  settings.openrouterKey = val('openrouter-key');
+  settings.supabaseUrl   = val('supabase-url');
+  settings.supabaseKey   = val('supabase-key');
+  settings.userId        = val('supabase-user');
+  saveSettings(settings);
+  state = getOrInitState(settings);
+}
+
+function syncCheckbox(cb) {
+  const item = cb.closest('.checkbox-item');
+  if (item) item.classList.toggle('checked', cb.checked);
+}
+
+// ─── MANAGE (CARD LIST) ───────────────────────────────────────────────────────
+let manageFilter = 'all';
+
+function renderManage() { renderCardList(); showScreen('manage'); }
+
+function renderCardList() {
+  const container = document.getElementById('card-list');
+  const t = now();
+  const cards = getActiveCards(settings);
+
+  document.querySelectorAll('.filter-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.filter === manageFilter);
+  });
+
+  let list = cards;
+  if (manageFilter !== 'all') {
+    list = cards.filter(c => {
+      const s = state[c.id];
+      if (!s) return false;
+      if (manageFilter === 'due')      return s.nextReview !== null && s.nextReview <= t;
+      if (manageFilter === 'mastered') return s.repetitions >= 4 && s.interval >= 21;
+      if (manageFilter === 'learning') return s.nextReview !== null && (s.repetitions > 0 || s.failed) && !(s.repetitions >= 4 && s.interval >= 21);
+      if (manageFilter === 'new')      return s.nextReview === null;
+      return true;
+    });
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>Aucune carte dans ce filtre.</p></div>';
+    return;
+  }
+
+  container.innerHTML = list.slice(0, 200).map(c => {
+    const s = state[c.id];
+    const isNew      = s.nextReview === null;
+    const isDue      = !isNew && s.nextReview <= t;
+    const isMastered = s.repetitions >= 4 && s.interval >= 21;
+    const pill = isNew
+      ? '<span class="pill pill-new">Nouveau</span>'
+      : isDue
+      ? '<span class="pill pill-due">À réviser</span>'
+      : isMastered
+      ? '<span class="pill pill-ok">Maîtrisé</span>'
+      : `<span class="pill pill-sched">${formatNextReview(s.nextReview)}</span>`;
+    return `<div class="card-list-item">
+      <div class="cli-left">
+        <span class="cli-pronoun">${c.pronoun}</span>
+        <span class="cli-verb">${c.verb}</span>
+        <span class="cli-tense">(${c.tenseLabel})</span>
+      </div>${pill}</div>`;
+  }).join('');
+}
+
+// ─── TRADUCTION ───────────────────────────────────────────────────────────────
+let transData      = null;
+let transDirection = 'es-fr';
+let transLevel     = 'B1-B2';
+let transRevealed  = false;
+
+function renderTranslation() {
+  transRevealed = false;
+  showScreen('translation');
+  resetTranslationUI();
+}
+
+function resetTranslationUI() {
+  setText('trans-source-label', transDirection === 'es-fr' ? 'Espagnol → Français' : 'Français → Espagnol');
+  setText('trans-level-label', transLevel);
+  document.getElementById('trans-source-text').textContent = '';
+  document.getElementById('trans-user-input').value = '';
+  document.getElementById('trans-correction').style.display = 'none';
+  document.getElementById('trans-correction').innerHTML = '';
+  document.getElementById('trans-loading').style.display = 'none';
+  document.getElementById('special-keys-trans').innerHTML = buildSpecialKeyboard('trans-user-input');
+  show('btn-trans-generate');
+  hide('btn-trans-check');
+}
+
+async function generateTranslation() {
+  if (!settings.openrouterKey) {
+    document.getElementById('trans-source-text').textContent = 'Configure ta clé OpenRouter dans Réglages pour utiliser cet exercice.';
+    return;
+  }
+  hide('btn-trans-generate');
+  document.getElementById('trans-loading').style.display = 'block';
+  document.getElementById('trans-source-text').textContent = 'Génération en cours…';
+  document.getElementById('trans-correction').style.display = 'none';
+  document.getElementById('trans-user-input').value = '';
+  transRevealed = false;
+
+  transData = await generateTranslationText(settings, transDirection, transLevel);
+  document.getElementById('trans-loading').style.display = 'none';
+
+  if (!transData) {
+    document.getElementById('trans-source-text').textContent = 'Erreur lors de la génération. Vérifie ta clé OpenRouter.';
+    show('btn-trans-generate');
+    return;
+  }
+
+  const sourceText = transDirection === 'es-fr' ? transData.text_es : transData.text_fr;
+  document.getElementById('trans-source-text').textContent = sourceText;
+  setText('trans-sujet', transData.sujet || '');
+  show('btn-trans-check');
+}
+
+function revealTranslation() {
+  if (!transData) return;
+  const correction = transDirection === 'es-fr' ? transData.text_fr : transData.text_es;
+  const correctionEl = document.getElementById('trans-correction');
+  correctionEl.innerHTML = `
+    <div class="trans-correction-label">Traduction</div>
+    <div class="trans-correction-text">${correction}</div>
+    <button class="btn btn-full" style="margin-top:1rem" onclick="generateTranslation()">Nouveau texte</button>`;
+  correctionEl.style.display = 'block';
+  hide('btn-trans-check');
+}
+
+function toggleTransDirection() {
+  transDirection = transDirection === 'es-fr' ? 'fr-es' : 'es-fr';
+  setText('trans-source-label', transDirection === 'es-fr' ? 'Espagnol → Français' : 'Français → Espagnol');
+  setText('btn-trans-dir', transDirection === 'es-fr' ? 'ES → FR' : 'FR → ES');
+}
+
+function toggleTransLevel() {
+  transLevel = transLevel === 'B1-B2' ? 'A1-A2' : 'B1-B2';
+  setText('trans-level-label', transLevel);
+  setText('btn-trans-level', transLevel);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
+function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  function on(id, fn) {
+    const el = document.getElementById(id);
+    if (!el) { console.warn('Missing element:', id); return; }
+    el.addEventListener('click', fn);
+  }
+
+  on('btn-study',           startSession);
+  on('btn-settings',        renderSettings);
+  on('btn-manage',          renderManage);
+  on('btn-guide',           renderGuide);
+  on('btn-translation',     renderTranslation);
+  on('btn-stats',           renderStats);
+  on('btn-done-home',       renderHome);
+  on('btn-check',           checkAnswer);
+  on('btn-trans-generate',  generateTranslation);
+  on('btn-trans-check',     revealTranslation);
+  on('btn-trans-dir',       toggleTransDirection);
+  on('btn-trans-level',     toggleTransLevel);
+
+  document.querySelectorAll('[data-back]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.back === 'settings') saveSettingsFromUI();
+      renderHome();
+    });
+  });
+
+  document.getElementById('answer-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const fb = document.getElementById('feedback');
+      if (fb.style.display === 'none' || !fb.style.display) {
+        checkAnswer();
+      } else {
+        // Feedback visible → deuxième Entrée = Facile
+        rate(5);
+      }
+    }
+  });
+
+  document.querySelectorAll('.checkbox-item input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => syncCheckbox(cb));
+  });
+
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      manageFilter = chip.dataset.filter;
+      renderCardList();
+    });
+  });
+
+  // Démarrer sur l'écran profils — charger depuis Supabase si localStorage vide
+  const lastProfileId = loadActiveProfileId();
+  const localProfiles = loadProfiles();
+
+  if (lastProfileId && localProfiles.find(p => p.id === lastProfileId)) {
+    // Appareil connu avec profil mémorisé → aller direct
+    selectProfile(lastProfileId);
+  } else {
+    // Nouvel appareil ou pas de profil mémorisé → afficher l'écran profils
+    // (renderProfileScreen va charger depuis Supabase automatiquement)
+    renderProfileScreen();
+  }
+});
+
+// ─── CLAVIER CARACTÈRES SPÉCIAUX ─────────────────────────────────────────────
+const SPECIAL_CHARS = ['á','é','í','ó','ú','ü','ñ','¿','¡','Á','É','Í','Ó','Ú','Ñ'];
+
+function buildSpecialKeyboard(targetId) {
+  return `<div class="special-keys">${
+    SPECIAL_CHARS.map(c =>
+      `<button class="special-key" onclick="insertChar('${c}','${targetId}')" type="button">${c}</button>`
+    ).join('')
+  }</div>`;
+}
+
+function insertChar(char, targetId) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  const start = el.selectionStart ?? el.value.length;
+  const end   = el.selectionEnd   ?? el.value.length;
+  el.value = el.value.slice(0, start) + char + el.value.slice(end);
+  el.selectionStart = el.selectionEnd = start + char.length;
+  el.focus();
+}
+
+// ─── STATS SCREEN ────────────────────────────────────────────────────────────
+let statsFilter = 'all';
+
+function renderStats() {
+  // Totaux globaux
+  let totalCorrect = 0, totalWrong = 0;
+  let totalFail = 0, totalHard = 0, totalGood = 0, totalEasy = 0;
+  let reviewed = 0;
+
+  Object.values(cardStats).forEach(s => {
+    totalCorrect += s.correct || 0;
+    totalWrong   += s.wrong   || 0;
+    totalFail    += s.btn_fail || 0;
+    totalHard    += s.btn_hard || 0;
+    totalGood    += s.btn_good || 0;
+    totalEasy    += s.btn_easy || 0;
+    if ((s.correct || 0) + (s.wrong || 0) > 0) reviewed++;
+  });
+
+  const totalAnswers = totalCorrect + totalWrong;
+  const pct = totalAnswers > 0 ? Math.round(totalCorrect / totalAnswers * 100) : 0;
+
+  // Top 10 cartes les plus ratées
+  const activeCards = getActiveCards(settings);
+  const hardest = activeCards
+    .filter(c => cardStats[c.id]?.wrong > 0)
+    .map(c => ({ card: c, s: cardStats[c.id] }))
+    .sort((a, b) => (b.s.wrong || 0) - (a.s.wrong || 0))
+    .slice(0, 10);
+
+  // Top 10 cartes les mieux maîtrisées
+  const easiest = activeCards
+    .filter(c => cardStats[c.id]?.correct > 0)
+    .map(c => ({ card: c, s: cardStats[c.id] }))
+    .sort((a, b) => {
+      const ra = (a.s.correct || 0) / Math.max(1, (a.s.correct || 0) + (a.s.wrong || 0));
+      const rb = (b.s.correct || 0) / Math.max(1, (b.s.correct || 0) + (b.s.wrong || 0));
+      return rb - ra;
+    })
+    .slice(0, 10);
+
+  const container = document.getElementById('stats-content');
+  container.innerHTML = `
+    <div class="stats-section-title">Vue globale</div>
+    <div class="stats-kpi-grid">
+      <div class="stats-kpi"><div class="stats-kpi-val accent">${pct}%</div><div class="stats-kpi-lbl">taux de réussite</div></div>
+      <div class="stats-kpi"><div class="stats-kpi-val">${totalAnswers.toLocaleString()}</div><div class="stats-kpi-lbl">réponses totales</div></div>
+      <div class="stats-kpi"><div class="stats-kpi-val" style="color:var(--correct)">${totalCorrect.toLocaleString()}</div><div class="stats-kpi-lbl">correctes</div></div>
+      <div class="stats-kpi"><div class="stats-kpi-val" style="color:var(--wrong)">${totalWrong.toLocaleString()}</div><div class="stats-kpi-lbl">incorrectes</div></div>
+    </div>
+
+    <div class="stats-section-title" style="margin-top:1.5rem">Boutons utilisés</div>
+    <div class="stats-btn-grid">
+      <div class="stats-btn-item r-fail"><div class="stats-btn-count">${totalFail}</div><div class="stats-btn-lbl">Échec</div></div>
+      <div class="stats-btn-item r-hard"><div class="stats-btn-count">${totalHard}</div><div class="stats-btn-lbl">Difficile</div></div>
+      <div class="stats-btn-item r-ok">  <div class="stats-btn-count">${totalGood}</div><div class="stats-btn-lbl">Bon</div></div>
+      <div class="stats-btn-item r-easy"><div class="stats-btn-count">${totalEasy}</div><div class="stats-btn-lbl">Facile</div></div>
+    </div>
+
+    <div class="stats-section-title" style="margin-top:1.5rem">Cartes les plus difficiles</div>
+    ${hardest.length === 0
+      ? '<div style="font-size:0.88rem;color:var(--text3);padding:0.5rem 0">Pas encore de données</div>'
+      : hardest.map(({card, s}) => {
+          const total = (s.correct || 0) + (s.wrong || 0);
+          const pctCard = Math.round((s.correct || 0) / total * 100);
+          return `<div class="stats-card-row">
+            <div class="stats-card-info">
+              <span class="cli-pronoun">${card.pronoun}</span>
+              <span class="cli-verb">${card.verb}</span>
+              <span class="cli-tense">(${card.tenseLabel})</span>
+            </div>
+            <div class="stats-card-right">
+              <span style="color:var(--wrong);font-size:0.85rem">${s.wrong} ✗</span>
+              <span style="color:var(--text3);font-size:0.78rem">${pctCard}% ok</span>
+            </div>
+          </div>`;
+        }).join('')
+    }
+
+    <div class="stats-section-title" style="margin-top:1.5rem">Cartes les mieux maîtrisées</div>
+    ${easiest.length === 0
+      ? '<div style="font-size:0.88rem;color:var(--text3);padding:0.5rem 0">Pas encore de données</div>'
+      : easiest.map(({card, s}) => {
+          const total = (s.correct || 0) + (s.wrong || 0);
+          const pctCard = Math.round((s.correct || 0) / total * 100);
+          return `<div class="stats-card-row">
+            <div class="stats-card-info">
+              <span class="cli-pronoun">${card.pronoun}</span>
+              <span class="cli-verb">${card.verb}</span>
+              <span class="cli-tense">(${card.tenseLabel})</span>
+            </div>
+            <div class="stats-card-right">
+              <span style="color:var(--correct);font-size:0.85rem">${s.correct} ✓</span>
+              <span style="color:var(--text3);font-size:0.78rem">${pctCard}% ok</span>
+            </div>
+          </div>`;
+        }).join('')
+    }
+  `;
+  showScreen('stats');
+}
+
+// ─── GUIDE ────────────────────────────────────────────────────────────────────
+const TERMINAISONS = {
+  presente: {
+    ar: ['o','as','a','amos','áis','an'],
+    er: ['o','es','e','emos','éis','en'],
+    ir: ['o','es','e','imos','ís','en'],
+  },
+  indefinido: {
+    ar: ['é','aste','ó','amos','asteis','aron'],
+    er: ['í','iste','ió','imos','isteis','ieron'],
+    ir: ['í','iste','ió','imos','isteis','ieron'],
+  },
+  imperfecto: {
+    ar: ['aba','abas','aba','ábamos','abais','aban'],
+    er: ['ía','ías','ía','íamos','íais','ían'],
+    ir: ['ía','ías','ía','íamos','íais','ían'],
+  },
+  // Temps composés : auxiliaire haber + participe passé
+  perfecto: {
+    label: 'haber (présent) + participio',
+    aux: ['he','has','ha','hemos','habéis','han'],
+    note: 'Participe : -AR → -ado  ·  -ER/-IR → -ido  ·  Irréguliers : hecho, dicho, puesto, vuelto, visto…',
+  },
+  pluscuamperfecto: {
+    label: 'haber (imparfait) + participio',
+    aux: ['había','habías','había','habíamos','habíais','habían'],
+    note: 'Participe : -AR → -ado  ·  -ER/-IR → -ido  ·  Irréguliers : hecho, dicho, puesto, vuelto, visto…',
+  },
+  futuro: {
+    ar: ['aré','arás','ará','aremos','aréis','arán'],
+    er: ['eré','erás','erá','eremos','eréis','erán'],
+    ir: ['iré','irás','irá','iremos','iréis','irán'],
+  },
+  condicional: {
+    ar: ['aría','arías','aría','aríamos','aríais','arían'],
+    er: ['ería','erías','ería','eríamos','eríais','erían'],
+    ir: ['iría','irías','iría','iríamos','iríais','irían'],
+  },
+  subjuntivo_pasado: {
+    label: 'haber (subjonctif présent) + participio',
+    aux: ['haya','hayas','haya','hayamos','hayáis','hayan'],
+    note: 'Participe : -AR → -ado  ·  -ER/-IR → -ido  ·  Irréguliers : hecho, dicho, puesto, vuelto, visto…',
+  },
+    ar: ['e','es','e','emos','éis','en'],
+    er: ['a','as','a','amos','áis','an'],
+    ir: ['a','as','a','amos','áis','an'],
+  },
+  subjuntivo_imperfecto: {
+    ar: ['ara','aras','ara','áramos','arais','aran'],
+    er: ['iera','ieras','iera','iéramos','ierais','ieran'],
+    ir: ['iera','ieras','iera','iéramos','ierais','ieran'],
+  },
+  // Impératif : formes par personne (pas de yo)
+  imperativo: {
+    label: 'Impératif affirmatif',
+    rows: [
+      {p:'tú',     ar:'habla',    er:'come',    ir:'vive'},
+      {p:'él/ella',ar:'hable',    er:'coma',    ir:'viva'},
+      {p:'nosotros',ar:'hablemos',er:'comamos', ir:'vivamos'},
+      {p:'vosotros',ar:'hablad',  er:'comed',   ir:'vivid'},
+      {p:'ellos',  ar:'hablen',   er:'coman',   ir:'vivan'},
+    ],
+    note: 'Irréguliers tú : haz, di, pon, sal, ten, ven, ve, sé',
+  },
+  imperativo_neg: {
+    label: 'Impératif négatif = no + subjonctif présent',
+    rows: [
+      {p:'tú',     ar:'no hables',   er:'no comas',   ir:'no vivas'},
+      {p:'él/ella',ar:'no hable',    er:'no coma',    ir:'no viva'},
+      {p:'nosotros',ar:'no hablemos',er:'no comamos', ir:'no vivamos'},
+      {p:'vosotros',ar:'no habléis', er:'no comáis',  ir:'no viváis'},
+      {p:'ellos',  ar:'no hablen',   er:'no coman',   ir:'no vivan'},
+    ],
+    note: 'Identique au subjonctif présent précédé de no',
+  },
+};
+
+function buildTerminaisonsTable(tenseKey) {
+  const data = TERMINAISONS[tenseKey];
+  if (!data) return '';
+  const pronouns = ['yo','tú','él/ella','nosotros','vosotros','ellos'];
+
+  // Temps composés (haber + participe)
+  if (data.aux) {
+    const rows = pronouns.map((p, i) => `
+      <tr>
+        <td style="color:var(--text3);font-size:0.8rem;padding:3px 10px 3px 0">${p}</td>
+        <td style="font-family:var(--font-display);font-style:italic;font-size:0.88rem;color:var(--accent)">${data.aux[i]}</td>
+        <td style="font-size:0.8rem;color:var(--text2);padding-left:6px">+ participio</td>
+      </tr>`).join('');
+    return `
+      <div style="margin-bottom:0.85rem">
+        <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:.07em">${data.label}</div>
+        <table style="border-collapse:collapse;width:100%"><tbody>${rows}</tbody></table>
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:0.5rem;font-style:italic">${data.note}</div>
+      </div>`;
+  }
+
+  // Impératif (rows spécifiques, pas de yo)
+  if (data.rows) {
+    const rows = data.rows.map(r => `
+      <tr>
+        <td style="color:var(--text3);font-size:0.8rem;padding:3px 10px 3px 0">${r.p}</td>
+        <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--accent);padding-right:8px">${r.ar}</td>
+        <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2);padding-right:8px">${r.er}</td>
+        <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2)">${r.ir}</td>
+      </tr>`).join('');
+    return `
+      <div style="margin-bottom:0.85rem">
+        <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:.07em">${data.label}</div>
+        <table style="border-collapse:collapse;width:100%">
+          <thead><tr>
+            <th style="font-size:0.72rem;color:var(--text3);font-weight:400;text-align:left;padding-bottom:4px"></th>
+            <th style="font-size:0.72rem;color:var(--accent);font-weight:500;text-align:left;padding-bottom:4px;padding-right:8px">-AR</th>
+            <th style="font-size:0.72rem;color:var(--text2);font-weight:400;text-align:left;padding-bottom:4px;padding-right:8px">-ER</th>
+            <th style="font-size:0.72rem;color:var(--text2);font-weight:400;text-align:left;padding-bottom:4px">-IR</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:0.5rem;font-style:italic">${data.note}</div>
+      </div>`;
+  }
+
+  // Terminaisons régulières classiques
+  const rows = pronouns.map((p, i) => `
+    <tr>
+      <td style="color:var(--text3);font-size:0.8rem;padding:4px 10px 4px 0">${p}</td>
+      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--accent);padding-right:8px">-${data.ar[i]}</td>
+      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2);padding-right:8px">-${data.er[i]}</td>
+      <td style="font-family:var(--font-display);font-style:italic;font-size:0.85rem;color:var(--text2)">-${data.ir[i]}</td>
+    </tr>`).join('');
+  return `
+    <div style="margin-bottom:0.85rem">
+      <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:.07em">Terminaisons régulières</div>
+      <table style="border-collapse:collapse;width:100%">
+        <thead><tr>
+          <th style="font-size:0.72rem;color:var(--text3);font-weight:400;text-align:left;padding-bottom:4px"></th>
+          <th style="font-size:0.72rem;color:var(--accent);font-weight:500;text-align:left;padding-bottom:4px;padding-right:8px">-AR</th>
+          <th style="font-size:0.72rem;color:var(--text2);font-weight:400;text-align:left;padding-bottom:4px;padding-right:8px">-ER</th>
+          <th style="font-size:0.72rem;color:var(--text2);font-weight:400;text-align:left;padding-bottom:4px">-IR</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+const GUIDE_DATA = [
+  {
+    tenseKey: 'presente',
+    es: 'Presente', fr: 'Présent de l\'indicatif',
+    triggers: ['ahora','siempre','todos los días','generalmente'],
+    usage: 'Actions habituelles, vérités générales, ce qui se passe en ce moment. Aussi pour le futur proche.',
+    examples: [
+      {es:'Trabajo en Madrid.',fr:'Je travaille à Madrid.'},
+      {es:'El sol sale por el este.',fr:'Le soleil se lève à l\'est.'},
+      {es:'Mañana voy al médico.',fr:'Demain je vais chez le médecin.'},
+    ],
+  },
+  {
+    tenseKey: 'indefinido',
+    es: 'Pretérito indefinido', fr: 'Prétérit indéfini',
+    triggers: ['ayer','el año pasado','en 2010','hace tres días'],
+    usage: 'Actions passées complètes et délimitées. Rupture avec le présent. Pour raconter une séquence d\'événements.',
+    examples: [
+      {es:'Ayer comí paella.',fr:'Hier j\'ai mangé de la paëlla.'},
+      {es:'Vivió en París dos años.',fr:'Il a vécu à Paris deux ans.'},
+      {es:'Llegué, vi, vencí.',fr:'Je suis arrivé, j\'ai vu, j\'ai vaincu.'},
+    ],
+  },
+  {
+    tenseKey: 'imperfecto',
+    es: 'Pretérito imperfecto', fr: 'Imparfait',
+    triggers: ['antes','cuando era niño','siempre (passé)','de niño'],
+    usage: 'Actions habituelles dans le passé, descriptions, contexte narratif. Contraste avec l\'indéfini pour les récits.',
+    examples: [
+      {es:'Cuando era niño, jugaba al fútbol.',fr:'Quand j\'étais enfant, je jouais au foot.'},
+      {es:'El cielo estaba nublado.',fr:'Le ciel était nuageux.'},
+      {es:'Dormía cuando sonó el teléfono.',fr:'Je dormais quand le téléphone a sonné.'},
+    ],
+  },
+  {
+    tenseKey: 'perfecto',
+    es: 'Pretérito perfecto compuesto', fr: 'Passé composé',
+    triggers: ['hoy','esta semana','alguna vez','ya','todavía no'],
+    usage: 'Actions passées liées au présent. Dominant en Espagne, moins utilisé en Amérique latine.',
+    examples: [
+      {es:'Hoy he comido tarde.',fr:'Aujourd\'hui j\'ai mangé tard.'},
+      {es:'¿Has estado en Japón?',fr:'Tu es déjà allé au Japon ?'},
+      {es:'Todavía no he terminado.',fr:'Je n\'ai pas encore terminé.'},
+    ],
+  },
+  {
+    tenseKey: 'pluscuamperfecto',
+    es: 'Pretérito pluscuamperfecto', fr: 'Plus-que-parfait',
+    triggers: ['ya','cuando llegué…','antes de que','nunca antes'],
+    usage: 'Action passée antérieure à une autre action passée. Formé avec había/habías… + participe.',
+    examples: [
+      {es:'Cuando llegué, ya había salido.',fr:'Quand je suis arrivé, il était déjà parti.'},
+      {es:'Nunca había visto tanta nieve.',fr:'Je n\'avais jamais vu autant de neige.'},
+    ],
+  },
+  {
+    tenseKey: 'futuro',
+    es: 'Futuro simple', fr: 'Futur simple',
+    triggers: ['mañana','el próximo año','seguramente','dentro de poco'],
+    usage: 'Actions futures, prédictions, suppositions. Aussi pour exprimer une probabilité présente.',
+    examples: [
+      {es:'Mañana lloverá.',fr:'Demain il pleuvra.'},
+      {es:'¿Cuántos años tendrá?',fr:'Quel âge peut-il avoir ? (supposition)'},
+      {es:'Será las tres.',fr:'Il doit être trois heures.'},
+    ],
+  },
+  {
+    tenseKey: 'condicional',
+    es: 'Condicional simple', fr: 'Conditionnel',
+    triggers: ['si pudiera…','me gustaría','debería','en tu lugar'],
+    usage: 'Hypothèses, désirs polis, futur dans le passé (discours indirect).',
+    examples: [
+      {es:'Me gustaría vivir en Barcelona.',fr:'J\'aimerais vivre à Barcelone.'},
+      {es:'Si tuviera dinero, viajaría.',fr:'Si j\'avais de l\'argent, je voyagerais.'},
+      {es:'Dijo que vendría.',fr:'Il a dit qu\'il viendrait.'},
+    ],
+  },
+  {
+    tenseKey: 'subjuntivo_presente',
+    es: 'Subjuntivo presente', fr: 'Subjonctif présent',
+    triggers: ['quiero que','es importante que','ojalá','cuando (futur)'],
+    usage: 'Souhait, émotion, doute, condition future. Se déclenche après certains verbes et conjonctions.',
+    examples: [
+      {es:'Quiero que vengas.',fr:'Je veux que tu viennes.'},
+      {es:'Ojalá haga buen tiempo.',fr:'Pourvu qu\'il fasse beau.'},
+      {es:'Cuando llegues, llámame.',fr:'Quand tu arriveras, appelle-moi.'},
+    ],
+  },
+  {
+    tenseKey: 'subjuntivo_pasado',
+    es: 'Subjuntivo pasado', fr: 'Subjonctif passé',
+    triggers: ['espero que haya','es posible que haya','cuando haya','aunque haya'],
+    usage: 'Action passée dans une subordonnée au subjonctif. Formé avec haber au subjonctif présent + participe passé. Exprime un fait passé incertain, espéré ou hypothétique.',
+    examples: [
+      {es:'Espero que hayas llegado bien.',fr:'J\'espère que tu es bien arrivé.'},
+      {es:'Es posible que haya salido ya.',fr:'Il est possible qu\'il soit déjà parti.'},
+      {es:'Me alegra que hayas venido.',fr:'Je suis content que tu sois venu.'},
+    ],
+  },
+    triggers: ['si… (irréel)','quería que','como si','ojalá (passé)'],
+    usage: 'Hypothèses irréelles au présent (si + subj. imparfait + conditionnel), discours indirect passé.',
+    examples: [
+      {es:'Si tuviera tiempo, estudiaría más.',fr:'Si j\'avais le temps, j\'étudierais plus.'},
+      {es:'Quería que vinieras.',fr:'Je voulais que tu viennes.'},
+      {es:'Habla como si supiera todo.',fr:'Il parle comme s\'il savait tout.'},
+    ],
+  },
+  {
+    tenseKey: 'imperativo',
+    es: 'Imperativo', fr: 'Impératif affirmatif',
+    triggers: ['¡ven!','¡habla!','ordre direct','instruction'],
+    usage: 'Ordres et instructions. Pas de forme yo. Irréguliers tú : haz, di, pon, sal, ten, ven, ve, sé.',
+    examples: [
+      {es:'¡Habla más despacio!',fr:'Parle plus lentement !'},
+      {es:'Ven aquí.',fr:'Viens ici.'},
+      {es:'Comed despacio.',fr:'Mangez lentement. (vosotros)'},
+    ],
+  },
+  {
+    tenseKey: 'imperativo_neg',
+    es: 'Imperativo negativo', fr: 'Impératif négatif',
+    triggers: ['¡no hagas!','interdiction','no + subjonctif'],
+    usage: 'Interdictions. Se forme avec "no" + subjonctif présent. Ex : habla (aff.) → no hables (nég.).',
+    examples: [
+      {es:'¡No hables tan rápido!',fr:'Ne parle pas si vite !'},
+      {es:'No lo hagas.',fr:'Ne fais pas ça.'},
+      {es:'No comáis antes de las 8.',fr:'Ne mangez pas avant 8h.'},
+    ],
+  },
+];
+
+function renderGuide() {
+  const container = document.getElementById('guide-content');
+  container.innerHTML = GUIDE_DATA.map((t, i) => {
+    const tableHTML = t.tenseKey ? buildTerminaisonsTable(t.tenseKey) : '';
+    return `
+    <div class="guide-item" id="guide-${i}">
+      <div class="guide-header" onclick="toggleGuide(${i})">
+        <span class="guide-tense-name">${t.es} <em>${t.fr}</em></span>
+        <span class="guide-chevron">▾</span>
+      </div>
+      <div class="guide-body">
+        <div class="guide-use-row">${t.triggers.map(tag => `<span class="guide-tag">${tag}</span>`).join('')}</div>
+        <div style="font-size:0.88rem;color:var(--text2);line-height:1.65;margin-bottom:0.85rem">${t.usage}</div>
+        ${tableHTML}
+        <div class="guide-examples">
+          ${t.examples.map(ex=>`
+            <div class="guide-ex">
+              <div class="guide-es">${ex.es}</div>
+              <div class="guide-fr">${ex.fr}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  showScreen('guide');
+}
+
+function toggleGuide(i) {
+  document.getElementById('guide-' + i).classList.toggle('open');
+}
