@@ -348,10 +348,12 @@ function checkAnswer() {
 
   show('feedback');
   hide('btn-check');
+  awaitingRating = true;
 }
 
 function rate(q) {
   if (!current) return;
+  awaitingRating = false;
   const inp = document.getElementById('answer-input');
   const isCorrect = inp.className.includes('correct');
 
@@ -567,7 +569,8 @@ function toggleTransLevel() {
   setText('btn-trans-level', transLevel);
 }
 
-// ─── UTILS ────────────────────────────────────────────────────────────────────
+// Flag global — true quand le feedback est affiché et qu'on attend une notation
+let awaitingRating = false;
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 function show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
 function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
@@ -602,13 +605,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
-    // Ne pas intercepter si on est dans un champ texte autre que l'input de réponse
     if (e.target.tagName === 'TEXTAREA') return;
     if (e.target.tagName === 'INPUT' && e.target.id !== 'answer-input') return;
 
-    const fb = document.getElementById('feedback');
-    const feedbackVisible = fb && fb.style.display !== 'none' && fb.innerHTML !== '';
-    if (feedbackVisible) {
+    if (awaitingRating) {
       rate(5);
     } else if (document.getElementById('screen-study').classList.contains('active')) {
       const inp = document.getElementById('answer-input');
