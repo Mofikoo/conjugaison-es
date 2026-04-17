@@ -803,6 +803,7 @@ const TERMINAISONS = {
     aux: ['haya','hayas','haya','hayamos','hayáis','hayan'],
     note: 'Participe : -AR → -ado  ·  -ER/-IR → -ido  ·  Irréguliers : hecho, dicho, puesto, vuelto, visto…',
   },
+  subjuntivo_presente: {
     ar: ['e','es','e','emos','éis','en'],
     er: ['a','as','a','amos','áis','an'],
     ir: ['a','as','a','amos','áis','an'],
@@ -1005,6 +1006,9 @@ const GUIDE_DATA = [
       {es:'Me alegra que hayas venido.',fr:'Je suis content que tu sois venu.'},
     ],
   },
+  {
+    tenseKey: 'subjuntivo_imperfecto',
+    es: 'Subjuntivo imperfecto', fr: 'Subjonctif imparfait',
     triggers: ['si… (irréel)','quería que','como si','ojalá (passé)'],
     usage: 'Hypothèses irréelles au présent (si + subj. imparfait + conditionnel), discours indirect passé.',
     examples: [
